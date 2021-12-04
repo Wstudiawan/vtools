@@ -250,10 +250,10 @@ class ActionListFragment : androidx.fragment.app.Fragment(), PageLayoutRender.On
             // 获取可选项（合并options-sh和静态options的结果）
             val options = getParamOptions(paramInfo, item)
             val optionsSorted = (if (options != null) {
-                        ActionParamsLayoutRender.setParamOptionsSelectedStatus(paramInfo, options)
-                    } else {
-                        null
-                    })
+                ActionParamsLayoutRender.setParamOptionsSelectedStatus(paramInfo, options)
+            } else {
+                null
+            })
 
             handler.post {
                 progressBarDialog.hideDialog()
@@ -266,7 +266,16 @@ class ActionListFragment : androidx.fragment.app.Fragment(), PageLayoutRender.On
                             if (item.multiple) {
                                 pickerExecute(item, (selected.map { "" + it.value }).joinToString(item.separator), onCompleted)
                             } else {
-                                pickerExecute(item, "" + selected[0].value, onCompleted)
+                                if (selected.size > 0) {
+                                    pickerExecute(item, "" + (
+                                            if (selected.size > 0) {
+                                                "" + selected[0].value
+                                            } else {
+                                                ""
+                                            }), onCompleted)
+                                } else {
+                                    Toast.makeText(context, getString(R.string.picker_select_none), Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     }).show(activity!!.supportFragmentManager, "picker-item-chooser")

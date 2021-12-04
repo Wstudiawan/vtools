@@ -2,13 +2,10 @@ package com.omarea.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
@@ -19,7 +16,6 @@ import com.omarea.library.basic.AppInfoLoader
 import com.omarea.model.AppInfo
 import com.omarea.vtools.R
 import kotlinx.coroutines.*
-import java.io.File
 import java.util.ArrayList
 import java.util.HashMap
 import kotlin.Comparator
@@ -62,7 +58,7 @@ class AppListAdapter(private val context: Context, apps: ArrayList<AppInfo>, pri
     init {
         this.list = sortAppList(filterAppList(apps, keywords))
         for (i in this.list.indices) {
-            states[i] = !(this.list[i].enabledState == null || !this.list[i].selected)
+            states[i] = !(this.list[i].stateTags == null || !this.list[i].selected)
         }
     }
 
@@ -95,8 +91,8 @@ class AppListAdapter(private val context: Context, apps: ArrayList<AppInfo>, pri
 
     private fun sortAppList(list: ArrayList<AppInfo>): ArrayList<AppInfo> {
         list.sortWith(Comparator { l, r ->
-            val les = l.enabledState.toString()
-            val res = r.enabledState.toString()
+            val les = l.stateTags.toString()
+            val res = r.stateTags.toString()
             when {
                 les < res -> -1
                 les > res -> 1
@@ -179,11 +175,11 @@ class AppListAdapter(private val context: Context, apps: ArrayList<AppInfo>, pri
             }
 
             enabledStateText?.run {
-                if (item.enabledState.isNullOrEmpty()) {
+                if (item.stateTags.isNullOrEmpty()) {
                     text = ""
                     visibility = View.GONE
                 } else {
-                    text = item.enabledState
+                    text = item.stateTags
                     visibility = View.VISIBLE
                 }
             }

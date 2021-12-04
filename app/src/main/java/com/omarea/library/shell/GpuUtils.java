@@ -58,6 +58,7 @@ public class GpuUtils {
             String path1 = getGpuParamsDir() + "/cur_freq"; // 骁龙
             String path2 = "/sys/kernel/gpu/gpu_clock";
             String path3 = "/sys/kernel/debug/ged/hal/current_freqency"; // 天玑820
+            String path4 = "/sys/kernel/ged/hal/current_freqency"; // 天玑1200
             if (RootFile.INSTANCE.fileExists(path1)) {
                 GPU_FREQ_CMD = "cat " + path1;
             } else if (RootFile.INSTANCE.fileExists(path2)) {
@@ -65,6 +66,9 @@ public class GpuUtils {
             } else if (RootFile.INSTANCE.fileExists(path3)) {
                 // 天玑820
                 GPU_FREQ_CMD = "echo $((`cat /sys/kernel/debug/ged/hal/current_freqency | cut -f2 -d ' '` / 1000))";
+            } else if (RootFile.INSTANCE.fileExists(path4)) {
+                // 天玑1200
+                GPU_FREQ_CMD = "echo $((`cat /sys/kernel/ged/hal/current_freqency | cut -f2 -d ' '` / 1000))";
             } else {
                 GPU_FREQ_CMD = "";
             }
@@ -93,6 +97,7 @@ public class GpuUtils {
 
                     "/sys/class/devfreq/gpufreq/mali_ondemand/utilisation", // 麒麟
                     "/sys/kernel/debug/ged/hal/gpu_utilization", // 天玑820（cat /sys/kernel/debug/ged/hal/gpu_utilization | cut -f1 -d ' '）
+                    "/sys/kernel/ged/hal/gpu_utilization", // 天玑1100 1200（cat /sys/kernel/ged/hal/gpu_utilization | cut -f1 -d ' '）
                     "/sys/module/ged/parameters/gpu_loading" // 天玑820 数值比较好看，但是值经常为0，莫名其妙
             };
             GPU_LOAD_PATH = "";
@@ -116,9 +121,20 @@ public class GpuUtils {
         }
     }
 
-    public static String[] getFreqs() {
+    public static String[] getAvailableFreqs() {
         String freqs = KernelProrp.INSTANCE.getProp(getGpuParamsDir() + "/available_frequencies");
-        return freqs.split("[ ]+");
+        return freqs.isEmpty() ? (new String[]{}) : freqs.split("[ ]+");
+    }
+
+    // Adreno /sys/class/kgsl/kgsl-3d0/freq_table_mhz
+    public static String[] getFreqTableMhz() {
+        if (isAdrenoGPU()) {
+            String freqs = KernelProrp.INSTANCE.getProp(gpuParamsDirAdreno + "/freq_table_mhz");
+            if (!freqs.isEmpty()) {
+                return freqs.split("[ ]+");
+            }
+        }
+        return new String[]{};
     }
 
     public static boolean supported() {
@@ -154,7 +170,7 @@ public class GpuUtils {
 
     public static String[] getGovernors() {
         String g = KernelProrp.INSTANCE.getProp(getGpuParamsDir() + "/available_governors");
-        return g.split("[ ]+");
+        return g.isEmpty() ? (new String[]{}) : g.split("[ ]+");
     }
 
     public static String getMinFreq() {

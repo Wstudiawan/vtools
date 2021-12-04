@@ -9,6 +9,8 @@
     <string name="btn_delete">删除</string>
     <string name="btn_dontshow">不再显示</string>
     <string name="btn_confirm">确定</string>
+    <string name="btn_no">否</string>
+    <string name="btn_yes">是</string>
     <string name="btn_continue">继续</string>
     <string name="btn_modify_confirm">确认修改</string>
     <string name="btn_help">帮助</string>
@@ -18,6 +20,7 @@
     <string name="btn_resume">恢复</string>
     <string name="btn_skip">跳过</string>
     <string name="btn_retry">重试</string>
+    <string name="btn_apply">应用</string>
     <string name="btn_reboot">重启</string>
     <string name="btn_resume_selected">恢复选中</string>
     <string name="error_su_timeout">等待超时，请确保你的Root管理器正在后台运行，并重试！\n\n请确保你没有阻止“授权管理器(SuperSu、Magisk Manager等)”自启动，并允许后台弹出窗口、显示悬浮窗等权限。如果一直没有弹出授权对话框，建议重启手机再试！\n</string>
@@ -71,18 +74,15 @@
     <string name="settings_theme_wallpaper">使用壁纸</string>
     <string name="settings_theme_wallpaper_desc">使用系统壁纸作为窗口背景，显示为半透明界面</string>
     <string name="settings_debug_layer">调试窗口</string>
-    <string name="settings_debug_layer_desc">显示Scene判定前台应用过程的日志（需重启辅助服务）</string>
+    <string name="settings_debug_layer_desc">显示Scene判定前台应用过程的日志</string>
     <string name="settings_help_icon">提示图标</string>
     <string name="settings_help_icon_desc">在功能项旁边显示功能说明提示（问号）图标</string>
-    <string name="settings_delay_detection">延迟检测</string>
-    <string name="settings_delay_detection_desc">应用界面发生变化时，延迟(而不是立即)检测最上层应用</string>
-    <string name="settings_delay_detection_disabled">经典模式开启时，无法使用延迟检测！</string>
-    <string name="settings_classic_mode">经典模式</string>
-    <string name="settings_classic_mode_desc">场景模式使用旧版Scene(3.2以前)的前台应用检测逻辑（需重启辅助服务）</string>
     <string name="settings_auto_exit">异常时自动退出</string>
     <string name="settings_auto_exit_desc">运行过程出现异常时自动结束进程，避免卡死白屏</string>
     <string name="settings_logcat_title">错误日志</string>
     <string name="settings_logcat_desc">当Scene发生错误闪退时，点击下面的按钮通过logcat抓取日志，发送给开发者以便解决问题</string>
+    <string name="settings_black_notification">黑色通知背景</string>
+    <string name="settings_black_notification_desc">系统处于夜间模式时，将Scene的常驻通知显示为黑色背景(正常情况无需开启此选项)</string>
 
     <string name="menu_home">概况</string>
     <string name="menu_paypal">捐赠打赏</string>
@@ -102,6 +102,7 @@
     <string name="menu_charge">充电统计</string>
     <string name="menu_custom_command">自定义命令</string>
     <string name="menu_processes">进程管理</string>
+    <string name="menu_fps_chart">帧率记录</string>
     <string name="menu_app_magisk">Magisk助手</string>
     <string name="menu_gesture">手势导航</string>
     <string name="menu_xposed_app">应用设置</string>
@@ -246,18 +247,24 @@
     <string name="swap_auto_start">开机自启(要允许Scene自启动)</string>
     <string name="swap_auto_start_desc">注意：你需要允许Scene自启动，下次开机才会生效！</string>
     <string name="swap_zram_stat">ZRAM 状态</string>
-    <string name="swap_outside_module_installed">外部附加(Magisk)模块已激活</string>
+    <string name="swap_outside_module">外部附加(Magisk)模块</string>
+    <string name="swap_outside_module_desc">您已安装Magisk框架，建议使用附加模块最新版本增强SWAP控制的可靠性，附加主要作用如下：</string>
+    <string name="swap_outside_effect1">1.提高手机重启后还原ZRAM、Swapfile设置的速度</string>
+    <string name="swap_outside_effect2">2.根据设备RAM容量调整LMK参数，加强后台留存能力</string>
+    <string name="swap_outside_effect3">3.调整VM参数，提高ZRAM、Swapfile使用积极性</string>
+    <string name="swap_module_install_desc">模块下载后，请自行在Magisk Manager中刷入,并重启手机！</string>
     <string name="swap_zram_stat_desc">ZRAM的压缩率通常在20~45%之间</string>
     <string name="swap_zram_stat_format">数据压缩算法：%s\n原始数据大小：%s\n压缩后的大小：%s\n物理内存占用：%s\n最高内存占用：%s\n内存占用限制：%s\n压缩率　　　：%s</string>
     <string name="swap_zram_stat_format2">数据压缩算法：%s\n原始数据大小：%s\n压缩后的大小：%s\n压缩率　　　：%s</string>
+    <string name="swap_zram_writback_stat">ZRAM Writeback\n回写块：%s\n已回写：%dMB\n总读取：%dMB\n总回写：%dMB</string>
     <string name="swap_zram_compact_algorithm">压缩算法</string>
     <string name="swap_state_undefined">未创建</string>
     <string name="swap_state_created">未启动</string>
     <string name="swap_state_using">使用中</string>
     <string name="extra_free_kbytes">extra_free_kbytes(KB)</string>
-    <string name="extra_free_kbytes_desc">此值指定Linux内核会额外保留多少物理内存，当内存不足时会立即开始压缩内存到SWAP/ZRAM，在可用内存回升到合理范围之前设备会明显变得缓慢\n\n简单地说extra_free_kbytes设置越大，则内存回收/交换越积极，但不建议设置过大，以免浪费物理内存而加重磁盘/处理器负担！</string>
+    <string name="extra_free_kbytes_desc">此值指定Linux内核会额外保留多少物理内存，当内存不足时会立即开始压缩内存到SWAP/ZRAM，在可用内存回升到合理范围之前设备会明显变得缓慢\n\n简单地说extra_free_kbytes设置越大，则内存回收(swap或杀死进程)越积极，但不建议设置过大，以免浪费物理内存而加重磁盘/处理器负担！</string>
     <string name="watermark_scale_factor">watermark_scale_factor</string>
-    <string name="watermark_scale_factor_desc">数值范围为0~1000，其中1000表示10%，表示内存水位线low/min/high三个数值之间各相差(物理RAM容量的)10%。\n\n例如(我的手机)：\npageSize=4KB\nmanaged=1951743(pages)\nmin_free_kbytes=10900(KB)\nwatermark_scale_factor=500\n\n此时min值为\n10900(KB)/4(PageSize)=2725(pages)\nlow值大约是\n1951743*5%+2725≈100312(pages)\nhigh值大约是\n1951743*10%+2725≈197899(pages)\n注：最终的low、high值，可能受extra_free_kbytes影响而偏大\n\n这个例子中，\nmin=2725=10MB\nlow=100312≈392MB\nhigh=197899≈773MB\n\n意味着，内存低于392M便会开始回收内存，直到可用内存高于773MB\n\n如果你追求极致的后台能力，且并不是很关心性能和耗电，可将该值调大(但不建议超过500)，而如果你关注流畅度则建议设为100以内~</string>
+    <string name="watermark_scale_factor_desc">数值范围为0~1000，其中1000表示10%，表示内存水位线low/min/high三个数值之间各相差(物理RAM容量的)10%。\n\n例如(我的手机)：\npageSize=4KB\nmanaged=1951743(pages)\nmin_free_kbytes=10900(KB)\nwatermark_scale_factor=500\n\n此时min值为\n10900(KB)/4(PageSize)=2725(pages)\nlow值大约是\n1951743*5%+2725≈100312(pages)\nhigh值大约是\n1951743*10%+2725≈197899(pages)\n注：最终的low、high值，可能受extra_free_kbytes影响而偏大\n\n这个例子中，\nmin=2725=10MB\nlow=100312≈392MB\nhigh=197899≈773MB\n\n意味着，内存低于392M便会开始回收内存，直到可用内存高于773MB~</string>
 
     <string name="on_execute_please_wait">正在执行操作，请稍等…</string>
     <string name="please_wait">请稍等…</string>
@@ -307,6 +314,12 @@
         <item>性能模式</item>
         <item>极速模式</item>
     </string-array>
+    <string-array name="sleep_powercfg_mode_options">
+        <item>省电模式</item>
+        <item>均衡模式</item>
+        <item>性能模式</item>
+        <item>保持状态</item>
+    </string-array>
     <string-array name="powercfg_modes_filter">
         <item>全部</item>
         <item>省电</item>
@@ -335,9 +348,9 @@
         <item></item>
         <item>scene_lock</item>
         <item>scene_perf</item>
-        <item>scene_sys</item>
-        <item>scene_limit</item>
-        <item>scene_limit2</item>
+        <item>scene_fg</item>
+        <item>scene_bg</item>
+        <item>scene_cache</item>
     </string-array>
 
     <string name="title_activity_timing_task">定时任务</string>
@@ -361,17 +374,13 @@
 
     <string name="flash_confirm">确认刷入？</string>
 
-    <string name="scene_addin_installing">稍等，正在安装“Scene - 高级设定”插件…</string>
-    <string name="scene_addin_miss">插件未集成到应用包，请单独下载！</string>
-    <string name="scene_inner_addin_invalid">Scene中集成的“高级设置”插件版本过低，请联系系开发者报告错误！</string>
-    <string name="scene_addin_installed">“Scene - 高级设定”插件已安装完成！</string>
-    <string name="scene_addin_install_fail">“Scene - 高级设定”插件安装失败！</string>
-    <string name="scene_addin_sync_fail">从“Scene-高级设定”插件同步Xposed设定失败！</string>
-    <string name="scene_addin_version_toolow">“Scene-高级设定”插件版本过低！</string>
+    <string name="scene_addin_miss">高级设定 组件缺失</string>
+    <string name="scene_addin_miss_desc">请从Scene下载安装“Scene-高级设定”，并将其设为允许后台自启动！</string>
+    <string name="scene_addin_sync_fail">从“Scene-高级设定”组件同步Xposed设定失败！</string>
     <string name="scene_install_autoclick">安装点击</string>
     <string name="scene_install_autoclick_desc">安装第三方应用时，自动帮你点“下一步”和“安装”</string>
     <string name="scene_install_skip_ad">跳过广告</string>
-    <string name="scene_install_skip_ad_desc">自动点击“跳过”按钮，可帮你自动跳过一些开屏广告，但也会有误点现象</string>
+    <string name="scene_install_skip_ad_desc">自动点击“跳过”按钮，可帮你自动跳过一些开屏广告，但会降低系统性能且存在误点现象\n* 只在简体中文下使用才有较好的效果</string>
     <string name="scene_install_skip_ad_precise">跳过广告+</string>
     <string name="scene_install_skip_ad_precise_desc">使用云端记录的一些按钮数据，来点击特殊的跳过按钮</string>
     <string name="scene_install_skip_ad_warn">广告流量是一些软件开发者/商的重要收入来源，如果你的时间不是非常紧迫，那么建议您浏览并点击你喜欢的广告内容^_^</string>
@@ -381,9 +390,6 @@
     <string name="start_app_fail">启动应用失败！</string>
     <string name="scene_need_notic_listing">请先授权允许Scene“通知使用权限”！</string>
 
-    <string name="scene_service_config_change_action">com.omarea.vtools.SceneAccessibleConfigChanged</string>
-    <string name="scene_change_action">com.omarea.vtools.SceneConfigChanged</string>
-    <string name="scene_appchange_action">com.omarea.vtools.SceneAppChanged</string>
     <string name="scene_create_shortcut_action">com.omarea.vtools.CreateShortcut</string>
     <string name="scene_speed_compile">com.omarea.vtools.SpeedCompile</string>
     <string name="scene_speed_profile_compile">com.omarea.vtools.SpeedProfileCompile</string>

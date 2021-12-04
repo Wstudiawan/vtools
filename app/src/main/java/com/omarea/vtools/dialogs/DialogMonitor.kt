@@ -4,11 +4,11 @@ import android.app.Activity
 import android.view.View
 import android.widget.CompoundButton
 import android.widget.Toast
+import com.omarea.Scene
 import com.omarea.common.ui.DialogHelper
+import com.omarea.utils.AccessibleServiceHelper
 import com.omarea.vtools.R
-import com.omarea.vtools.popup.FloatMonitor
-import com.omarea.vtools.popup.FloatMonitorGame
-import com.omarea.vtools.popup.FloatTaskManager
+import com.omarea.vtools.popup.*
 
 class DialogMonitor(var context: Activity) {
     fun show() {
@@ -41,13 +41,48 @@ class DialogMonitor(var context: Activity) {
                 }
             }
         }
-        view.findViewById<CompoundButton>(R.id.monitor_game).run {
-            isChecked = FloatMonitorGame.show == true
+        view.findViewById<CompoundButton>(R.id.monitor_threads).run {
+            isChecked = FloatMonitorThreads.show == true
             setOnClickListener {
                 if (isChecked) {
-                    FloatMonitorGame(context).showPopupWindow()
+                    val floatTaskManager = FloatMonitorThreads(context)
+                    if (floatTaskManager.supported) {
+                        FloatMonitorThreads(context).showPopupWindow()
+                    } else {
+                        Toast.makeText(context, context.getString(R.string.monitor_process_unsupported), Toast.LENGTH_SHORT).show()
+                        isChecked = false
+                    }
                 } else {
-                    FloatMonitorGame(context).hidePopupWindow()
+                    FloatMonitorThreads(context).hidePopupWindow()
+                }
+            }
+        }
+        view.findViewById<CompoundButton>(R.id.monitor_game).run {
+            isChecked = FloatMonitorMini.show == true
+            setOnClickListener {
+                if (isChecked) {
+                    FloatMonitorMini(context).showPopupWindow()
+                } else {
+                    FloatMonitorMini(context).hidePopupWindow()
+                }
+            }
+        }
+        view.findViewById<CompoundButton>(R.id.monitor_watch).run {
+            isChecked = FloatFpsWatch.show == true
+            setOnClickListener {
+                if (isChecked) {
+                    FloatFpsWatch(context).showPopupWindow()
+                    /*
+                    val serviceState = AccessibleServiceHelper().serviceRunning(context)
+                    if (serviceState) {
+                        FloatFpsWatch(context).showPopupWindow()
+                    } else {
+                        isChecked = false
+                        Scene.toast("请在系统设置里激活[Scene - 场景模式]辅助服务", Toast.LENGTH_SHORT)
+                    }
+                    */
+                } else {
+                    FloatFpsWatch(context).hidePopupWindow()
                 }
             }
         }

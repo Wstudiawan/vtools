@@ -10,7 +10,7 @@ init () {
     sh /data/powercfg-base.sh
   fi
 }
-if [[ "$action" = "init" ]]; then
+if [[ "$action" == "init" ]]; then
   init
   exit 0
 fi
@@ -52,7 +52,7 @@ governor_backup () {
   if [[ ! -f $governor_backup ]] || [[ "$backup_state" != "true" ]]; then
     echo '' > $governor_backup
     local dir=/sys/class/devfreq
-    for file in `ls $dir`; do
+    for file in `ls $dir | grep -v 'kgsl-3d0'`; do
       if [ -f $dir/$file/governor ]; then
         governor=`cat $dir/$file/governor`
         echo "$file#$governor" >> $governor_backup
@@ -70,7 +70,7 @@ governor_performance () {
   local backup_state=`getprop vtools.dev_freq_backup`
 
   if [[ -f "$governor_backup" ]] && [[ "$backup_state" == "true" ]]; then
-    for file in `ls $dir`; do
+    for file in `ls $dir | grep -v 'kgsl-3d0'`; do
       if [ -f $dir/$file/governor ]; then
         # echo $dir/$file/governor
         echo performance > $dir/$file/governor
@@ -191,6 +191,7 @@ if [ "$action" = "powersave" ]; then
 
   echo $gpu_min_pl > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
   echo 0 > /proc/sys/kernel/sched_boost
+  echo 0-3 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "balance" ]; then
   set_cpu_freq 5000 1766400 5000 1996800
@@ -201,6 +202,7 @@ elif [ "$action" = "balance" ]; then
 
   echo $gpu_min_pl > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
   echo 0 > /proc/sys/kernel/sched_boost
+  echo 0-5 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "performance" ]; then
   set_cpu_freq 5000 1766400 5000 2649600
@@ -211,6 +213,7 @@ elif [ "$action" = "performance" ]; then
 
   echo `expr $gpu_min_pl - 1` > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
   echo 0 > /proc/sys/kernel/sched_boost
+  echo 0-7 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "fast" ]; then
   set_cpu_freq 5000 2500000 1267200 3500000
@@ -221,4 +224,5 @@ elif [ "$action" = "fast" ]; then
 
   echo `expr $gpu_min_pl - 2` > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
   echo 1 > /proc/sys/kernel/sched_boost
+  echo 0-7 > /dev/cpuset/foreground/cpus
 fi

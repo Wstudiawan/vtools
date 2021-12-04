@@ -1,6 +1,7 @@
 package com.omarea.scene_mode
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -8,7 +9,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.omarea.Scene
 import com.omarea.store.AutoSkipConfigStore
-import com.omarea.vtools.popup.FloatAdSkipConfirm
+import com.omarea.store.SpfConfig
 import java.util.*
 
 /**
@@ -18,6 +19,7 @@ class AutoSkipAd(private val service: AccessibilityService) {
     private val autoSkipConfigStore = AutoSkipConfigStore(service.applicationContext)
     private var displayWidth: Int = 0
     private var displayHeight: Int = 0
+    private val blackListCustom = service.getSharedPreferences(SpfConfig.AUTO_SKIP_BLACKLIST, Context.MODE_PRIVATE)
 
     companion object {
         private var lastClickedNodeValue: AccessibilityNodeInfo? = null
@@ -90,8 +92,8 @@ class AutoSkipAd(private val service: AccessibilityService) {
     fun skipAd(event: AccessibilityEvent, precise: Boolean, displayWidth: Int, displayHeight: Int) {
         this.displayWidth = displayWidth
         this.displayHeight = displayHeight
-        val packageName = event.packageName
-        if (packageName == null || this.blackList.contains(event.packageName)) {
+        val packageName = event.packageName?.toString()
+        if (packageName == null || this.blackList.contains(packageName) || blackListCustom.contains(packageName)) {
             return
         }
 
@@ -104,9 +106,6 @@ class AutoSkipAd(private val service: AccessibilityService) {
 
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             lastActivity = event.className?.toString()
-        } else if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val viewId = event.source?.viewIdResourceName // 有些跳过按钮不是文字来的 // if (event.text?.contains("跳过") == true) event.source?.viewIdResourceName else null
-            Log.d("@Scene", "点击了$viewId")
         }
         if (precise && preciseSkip(source)) {
             return

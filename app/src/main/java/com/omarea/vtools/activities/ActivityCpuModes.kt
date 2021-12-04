@@ -2,7 +2,6 @@ package com.omarea.vtools.activities
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -20,10 +19,12 @@ import com.omarea.common.shared.FilePathResolver
 import com.omarea.common.shared.FileWrite
 import com.omarea.common.shell.KeepShellPublic
 import com.omarea.common.ui.DialogHelper
+import com.omarea.data.EventBus
+import com.omarea.data.EventType
+import com.omarea.library.shell.ThermalDisguise
 import com.omarea.scene_mode.CpuConfigInstaller
 import com.omarea.scene_mode.ModeSwitcher
 import com.omarea.store.SpfConfig
-import com.omarea.utils.AccessibleServiceHelper
 import com.omarea.vtools.R
 import kotlinx.android.synthetic.main.activity_cpu_modes.*
 import java.io.File
@@ -87,7 +88,7 @@ class ActivityCpuModes : ActivityBase() {
 
         cpu_mode_delete_outside.setOnClickListener {
             DialogHelper.confirm(this, "确定删除?",
-                    "确定删除安装在 /data/powercfg.sh 的外部配置脚本吗？\n它可能是Scene2遗留下来的，也可能是其它优化模块创建的",
+                    "确定删除安装在 /data/powercfg.sh 的外部配置脚本吗？\n它可能是Scene2遗留下来的，也可能是其它优化模块创建的\n（删除后建议重启手机一次）",
                     {
                         configInstaller.removeOutsideConfig()
                         cpu_mode_outside.visibility = View.GONE
@@ -96,16 +97,29 @@ class ActivityCpuModes : ActivityBase() {
                     })
         }
 
-        val modeValue = globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_FIRST_MODE, "balance")
-        when (modeValue) {
-            ModeSwitcher.POWERSAVE -> first_mode.setSelection(0)
-            ModeSwitcher.BALANCE -> first_mode.setSelection(1)
-            ModeSwitcher.PERFORMANCE -> first_mode.setSelection(2)
-            ModeSwitcher.FAST -> first_mode.setSelection(3)
-            ModeSwitcher.IGONED -> first_mode.setSelection(4)
+        first_mode.run {
+            when (globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_FIRST_MODE, ModeSwitcher.BALANCE)) {
+                ModeSwitcher.POWERSAVE -> setSelection(0)
+                ModeSwitcher.BALANCE -> setSelection(1)
+                ModeSwitcher.PERFORMANCE -> setSelection(2)
+                ModeSwitcher.FAST -> setSelection(3)
+                ModeSwitcher.IGONED -> setSelection(4)
+            }
+
+            onItemSelectedListener = ModeOnItemSelectedListener(globalSPF) {
+                reStartService()
+            }
         }
-        first_mode.onItemSelectedListener = ModeOnItemSelectedListener(globalSPF) {
-            reStartService()
+
+        sleep_mode.run {
+            when (globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_SLEEP_MODE, ModeSwitcher.POWERSAVE)) {
+                ModeSwitcher.POWERSAVE -> setSelection(0)
+                ModeSwitcher.BALANCE -> setSelection(1)
+                ModeSwitcher.PERFORMANCE -> setSelection(2)
+                ModeSwitcher.IGONED -> setSelection(3)
+            }
+            onItemSelectedListener = ModeOnItemSelectedListener2(globalSPF) {
+            }
         }
 
         val sourceClick = object : View.OnClickListener {
@@ -124,6 +138,16 @@ class ActivityCpuModes : ActivityBase() {
         home_quick_switch.setOnClickListener {
             globalSPF.edit().putBoolean(SpfConfig.HOME_QUICK_SWITCH, (it as CompoundButton).isChecked).apply()
         }
+        extreme_performance_on.setOnClickListener {
+            val isChecked = (it as CompoundButton).isChecked
+            if (isChecked) {
+                ThermalDisguise().disableMessage()
+            } else {
+                ThermalDisguise().resumeMessage()
+            }
+        }
+        // 卓越性能 目前仅限888处理器开放
+        extreme_performance.visibility = if (ThermalDisguise().supported()) View.VISIBLE else View.GONE
     }
 
     // 选择配置来源
@@ -217,10 +241,30 @@ class ActivityCpuModes : ActivityBase() {
         }
     }
 
+    private class ModeOnItemSelectedListener2(private var globalSPF: SharedPreferences, private var runnable: Runnable) : AdapterView.OnItemSelectedListener {
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+        }
+
+        @SuppressLint("ApplySharedPref")
+        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+            var mode = ModeSwitcher.POWERSAVE
+            when (position) {
+                0 -> mode = ModeSwitcher.POWERSAVE
+                1 -> mode = ModeSwitcher.BALANCE
+                2 -> mode = ModeSwitcher.PERFORMANCE
+                3 -> mode = ModeSwitcher.IGONED
+            }
+            if (globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_SLEEP_MODE, ModeSwitcher.POWERSAVE) != mode) {
+                globalSPF.edit().putString(SpfConfig.GLOBAL_SPF_POWERCFG_SLEEP_MODE, mode).commit()
+                runnable.run()
+            }
+        }
+    }
+
 
     private fun outsideOverrided(): Boolean {
         if (configInstaller.outsideConfigInstalled()) {
-            DialogHelper.helpInfo(context, "你需要先删除外部配置，因为Scene3会优先使用它！")
+            DialogHelper.helpInfo(context, "你需要先删除外部配置，因为Scene会优先使用它！")
             return true
         }
         return false
@@ -231,7 +275,7 @@ class ActivityCpuModes : ActivityBase() {
             if (author == ModeSwitcher.SOURCE_SCENE_CUSTOM) {
                 modifyCpuConfig(mode)
             } else {
-                Snackbar.make(it, "如需自定义各个模式的参数，请先将配置源切换为“自定义”", Snackbar.LENGTH_SHORT).show()
+                DialogHelper.alert(this, "操作提示", "如需自定义各个模式的参数，请先将配置源切换为“自定义”\n\n如需应用[省电/均衡/性能/性能]模式，请在软件概览界面点击")
             }
         }
     }
@@ -265,6 +309,7 @@ class ActivityCpuModes : ActivityBase() {
             dynamic_control.isChecked = false
             reStartService()
         }
+        extreme_performance_on.isChecked = ThermalDisguise().isDisabled()
     }
 
     private fun updateState(button: View, mode: String) {
@@ -483,8 +528,6 @@ class ActivityCpuModes : ActivityBase() {
      * 重启辅助服务
      */
     private fun reStartService() {
-        if (AccessibleServiceHelper().serviceRunning(context)) {
-            context.sendBroadcast(Intent(context.getString(R.string.scene_change_action)))
-        }
+        EventBus.publish(EventType.SCENE_CONFIG)
     }
 }

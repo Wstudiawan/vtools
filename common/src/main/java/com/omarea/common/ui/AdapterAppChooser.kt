@@ -10,7 +10,15 @@ import com.omarea.common.R
 import kotlinx.coroutines.*
 import java.util.*
 
-class AdapterAppChooser(private val context: Context, private var apps: ArrayList<AppInfo>, private val multiple: Boolean) : BaseAdapter(), Filterable {
+class AdapterAppChooser(
+        private val context: Context,
+        private var apps: ArrayList<AppInfo>,
+        private val multiple: Boolean
+) : BaseAdapter(), Filterable {
+    interface SelectStateListener {
+        fun onSelectChange(selected: List<AppInfo>)
+    }
+
     open class AppInfo {
         var appName: String = ""
         var packageName: String = ""
@@ -20,6 +28,7 @@ class AdapterAppChooser(private val context: Context, private var apps: ArrayLis
         var selected: Boolean = false
     }
 
+    private var selectStateListener: SelectStateListener? = null
     private var filter: Filter? = null
     internal var filterApps: ArrayList<AppInfo> = apps
     private val mLock = Any()
@@ -70,18 +79,23 @@ class AdapterAppChooser(private val context: Context, private var apps: ArrayLis
                 synchronized(adapter.mLock) {
                     values = ArrayList<AppInfo>(adapter.apps)
                 }
+                val selected = adapter.getSelectedItems()
 
                 val count = values.size
                 val newValues = ArrayList<AppInfo>()
 
                 for (i in 0 until count) {
                     val value = values[i]
-                    val labelText = value.appName.toLowerCase()
-                    val valueText = value.packageName.toLowerCase()
-                    if (searchStr(labelText, prefixString)) {
+                    if (selected.contains(value)) {
                         newValues.add(value)
-                    } else if (searchStr(valueText, prefixString)) {
-                        newValues.add(value)
+                    } else {
+                        val labelText = value.appName.toLowerCase()
+                        val valueText = value.packageName.toLowerCase()
+                        if (searchStr(labelText, prefixString)) {
+                            newValues.add(value)
+                        } else if (searchStr(valueText, prefixString)) {
+                            newValues.add(value)
+                        }
                     }
                 }
 
@@ -169,40 +183,61 @@ class AdapterAppChooser(private val context: Context, private var apps: ArrayLis
 
     fun updateRow(position: Int, convertView: View) {
         val item = getItem(position)
-        val viewHolder = ViewHolder()
+
+        val viewHolder = if (convertView.tag != null) {
+            convertView.tag as ViewHolder
+        } else {
+            ViewHolder().apply {
+                itemTitle = convertView.findViewById(R.id.ItemTitle)
+                itemDesc = convertView.findViewById(R.id.ItemDesc)
+                imgView = convertView.findViewById(R.id.ItemIcon)
+                checkBox = convertView.findViewById(R.id.ItemChecBox)
+            }
+        }
+
         val packageName = item.packageName
         viewHolder.packageName = packageName
 
-        viewHolder.itemTitle = convertView.findViewById(R.id.ItemTitle)
-        viewHolder.itemDesc = convertView.findViewById(R.id.ItemDesc)
-        viewHolder.imgView = convertView.findViewById(R.id.ItemIcon)
-        viewHolder.checkBox = convertView.findViewById(R.id.ItemChecBox)
-
         convertView.setOnClickListener {
             if (multiple || item.selected) {
-                item.selected = !item.selected
-                viewHolder.checkBox?.isChecked = item.selected
+                if (multiple) {
+                    item.selected = !item.selected
+                    viewHolder.checkBox?.isChecked = item.selected
+                }
             } else {
                 val current = apps.find { it.selected }
                 current?.selected = false
                 item.selected = true
                 notifyDataSetChanged()
             }
+            selectStateListener?.onSelectChange(getSelectedItems())
         }
 
-        viewHolder.imgView!!.setTag(getItem(position).packageName)
-        viewHolder.itemTitle?.text = item.appName
-        viewHolder.itemDesc?.text = item.packageName
-        viewHolder.checkBox?.isChecked = item.selected
         viewHolder.run {
+            itemTitle?.text = item.appName
+            itemDesc?.text = item.packageName
+            checkBox?.isChecked = item.selected
+
+            val imgView = imgView!!
+            imgView.tag = packageName
             GlobalScope.launch(Dispatchers.Main) {
                 val icon = loadIcon(item).await()
-                val imgView = imgView!!
-                if (icon != null && viewHolder.packageName == packageName) {
+                if (icon != null && imgView.tag == packageName) {
                     imgView.setImageDrawable(icon)
                 }
             }
         }
+    }
+
+    fun setSelectAllState(allSelected: Boolean) {
+        apps.forEach {
+            it.selected = allSelected
+        }
+        notifyDataSetChanged()
+    }
+
+    fun setSelectStateListener(selectStateListener: SelectStateListener?) {
+        this.selectStateListener = selectStateListener
     }
 
     fun getSelectedItems(): List<AppInfo> {

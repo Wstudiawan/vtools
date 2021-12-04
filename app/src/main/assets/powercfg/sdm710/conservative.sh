@@ -10,7 +10,7 @@ init () {
     sh /data/powercfg-base.sh
   fi
 }
-if [[ "$action" = "init" ]]; then
+if [[ "$action" == "init" ]]; then
   init
   exit 0
 fi
@@ -141,14 +141,12 @@ echo $gpu_min_freq > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
 echo $gpu_min_pl > /sys/class/kgsl/kgsl-3d0/min_pwrlevel
 echo $gpu_max_pl > /sys/class/kgsl/kgsl-3d0/max_pwrlevel
 
-function set_cpu_freq()
-{
-    echo $1 $2 $3 $4
-  echo "0:$2 1:$2 2:$2 3:$2 4:$4 5:$4 6:$4 7:$4" > /sys/module/msm_performance/parameters/cpu_max_freq
-  echo $1 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
-  echo $2 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-  echo $3 > /sys/devices/system/cpu/cpu6/cpufreq/scaling_min_freq
-  echo $4 > /sys/devices/system/cpu/cpu6/cpufreq/scaling_max_freq
+function set_cpu_freq() {
+  echo "0:$2 1:$2 2:$2 3:$2 4:$2 5:$2 6:$4 7:$4" > /sys/module/msm_performance/parameters/cpu_max_freq
+  echo $1 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+  echo $2 > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+  echo $3 > /sys/devices/system/cpu/cpufreq/policy6/scaling_min_freq
+  echo $4 > /sys/devices/system/cpu/cpufreq/policy6/scaling_max_freq
 }
 
 function set_input_boost_freq() {
@@ -185,6 +183,7 @@ if [ "$action" = "powersave" ]; then
   echo 0 > /proc/sys/kernel/sched_boost
 
   sched_config 100 120 300 400
+  echo 0-3 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "balance" ]; then
   echo 1 > /sys/devices/system/cpu/cpu6/online
@@ -200,6 +199,7 @@ elif [ "$action" = "balance" ]; then
   echo 0 > /proc/sys/kernel/sched_boost
 
   sched_config 89 99 300 400
+  echo 0-5 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "performance" ]; then
   echo 1 > /sys/devices/system/cpu/cpu6/online
@@ -215,6 +215,7 @@ elif [ "$action" = "performance" ]; then
   echo 0 > /proc/sys/kernel/sched_boost
 
   sched_config 89 98 300 400
+  echo 0-7 > /dev/cpuset/foreground/cpus
 
 elif [ "$action" = "fast" ]; then
   echo 1 > /sys/devices/system/cpu/cpu6/online
@@ -230,4 +231,5 @@ elif [ "$action" = "fast" ]; then
   echo 1 > /proc/sys/kernel/sched_boost
 
   sched_config 75 96 320 420
+  echo 0-7 > /dev/cpuset/foreground/cpus
 fi

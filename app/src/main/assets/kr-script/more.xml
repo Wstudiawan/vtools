@@ -33,13 +33,6 @@
             <set>run general/force_resize_set.sh</set>
         </switch>
 
-        <switch visible="getprop persist.vtools.ext_all">
-            <title>虚拟键设备</title>
-            <desc>标识当前设备没有实体按键，MIUI系统可以通过本功能启用全面屏手势，其它系统可以启用虚拟键。重启生效！</desc>
-            <get>run general/mainkey_get.sh</get>
-            <set>run general/mainkey_set.sh</set>
-        </switch>
-
         <action shell="hidden">
             <title>过渡动画时长</title>
             <desc>调整各种动画时长</desc>
@@ -69,11 +62,6 @@
             config="aosp/aosp.xml"
             desc="越接近原生的系统越适用" title="AOSP专属" />
         <page
-            id="page-meizu"
-            config="flyme/flyme.xml"
-            desc="适用于Flyme系统的选项" title="Flyme专属"
-            visible="run common/flyme_support.sh" />
-        <page
             id="page-mtk"
             config-sh="file:///android_asset/kr-script/mtk/mtk.sh"
             desc="MTK/天玑专属选项" title="MTK/天玑专属"
@@ -101,19 +89,5 @@
             id="page-other"
             config="other/other.xml"
             desc="其它杂七杂八的功能" title="杂项" />
-    </group>
-
-    <group>
-        <page
-            id="page-outdated"
-            config="outdated/outdated.xml"
-            confirm="true"
-            desc="一些由于效用不佳而被废弃的功能" title="废弃的功能" />
-    </group>
-
-    <group>
-        <page
-            html="https://vtools.oss-cn-beijing.aliyuncs.com/"
-            desc="Scene 官网" title="Scene 官网在线页面" />
     </group>
 </pages>

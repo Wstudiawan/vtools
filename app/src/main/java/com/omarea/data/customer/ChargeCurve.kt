@@ -26,7 +26,7 @@ class ChargeCurve(context: Context) : IEventReceiver {
         }
     }
 
-    override fun onReceive(eventType: EventType) {
+    override fun onReceive(eventType: EventType, data: HashMap<String, Any>?) {
         when (eventType) {
             EventType.POWER_CONNECTED -> {
                 val last = storage.lastCapacity()
@@ -52,6 +52,14 @@ class ChargeCurve(context: Context) : IEventReceiver {
     override val isAsync: Boolean
         get() = true
 
+    override fun onSubscribe() {
+
+    }
+
+    override fun onUnsubscribe() {
+
+    }
+
     private fun startUpdate() {
         if (timer == null) {
             timer = Timer().apply {
@@ -74,7 +82,11 @@ class ChargeCurve(context: Context) : IEventReceiver {
             batteryManager.getIntProperty(BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE)
 
             if (Math.abs(GlobalStatus.batteryCurrentNow) > 100) {
-                storage.addHistory(GlobalStatus.batteryCurrentNow, GlobalStatus.batteryCapacity, GlobalStatus.batteryTemperature)
+                storage.addHistory(
+                        GlobalStatus.batteryCurrentNow,
+                        GlobalStatus.batteryCapacity,
+                        GlobalStatus.updateBatteryTemperature()
+                )
             }
         } else {
             cancelUpdate()

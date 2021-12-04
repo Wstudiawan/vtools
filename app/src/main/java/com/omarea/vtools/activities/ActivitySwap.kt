@@ -3,11 +3,12 @@ package com.omarea.vtools.activities
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.View
 import android.widget.CompoundButton
 import android.widget.SeekBar
@@ -15,6 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.omarea.Scene
 import com.omarea.common.model.SelectItem
+import com.omarea.common.shared.MagiskExtend
 import com.omarea.common.shell.KeepShellPublic
 import com.omarea.common.shell.KernelProrp
 import com.omarea.common.shell.RootFile
@@ -23,9 +25,9 @@ import com.omarea.common.ui.DialogItemChooserMini
 import com.omarea.common.ui.ProgressBarDialog
 import com.omarea.library.basic.RadioGroupSimulator
 import com.omarea.library.shell.LMKUtils
+import com.omarea.library.shell.PropsUtils
 import com.omarea.library.shell.SwapModuleUtils
 import com.omarea.library.shell.SwapUtils
-import com.omarea.scene_mode.ModeSwitcher
 import com.omarea.store.SpfConfig
 import com.omarea.ui.AdapterSwaplist
 import com.omarea.vtools.R
@@ -62,12 +64,6 @@ class ActivitySwap : ActivityBase() {
     }
 
     private fun swapOffAwait(): Timer {
-        ModeSwitcher().run {
-            if (modeConfigCompleted()) {
-                executePowercfgMode(ModeSwitcher.FAST)
-            }
-        }
-
         val timer = Timer()
         val totalUsed = swapUtils.swapUsedSize
         val startTime = System.currentTimeMillis()
@@ -91,12 +87,6 @@ class ActivitySwap : ActivityBase() {
     }
 
     private fun zramOffAwait(): Timer {
-        ModeSwitcher().run {
-            if (modeConfigCompleted()) {
-                executePowercfgMode(ModeSwitcher.FAST)
-            }
-        }
-
         val timer = Timer()
         val totalUsed = swapUtils.zramUsedSize
         val startTime = System.currentTimeMillis()
@@ -123,7 +113,25 @@ class ActivitySwap : ActivityBase() {
         val context = this
         processBarDialog = ProgressBarDialog(context)
 
-        swap_module_state.visibility = if (swapModuleUtils.magiskModuleInstalled) View.VISIBLE else View.GONE
+        if (swapModuleUtils.magiskModuleInstalled) {
+            swap_module_installed.visibility = View.VISIBLE
+            swap_module_uninstalled.visibility = View.GONE
+        } else {
+            swap_module_installed.visibility = View.GONE
+            swap_module_uninstalled.visibility = View.VISIBLE
+        }
+
+        if (MagiskExtend.magiskSupported()) {
+            val currentVersion = swapModuleUtils.getModuleVersion()
+            if (currentVersion < getString(R.string.swap_module_target_version).toInt()) {
+                swap_module_downloadable.visibility = View.VISIBLE
+                swap_module_downloadable.setOnClickListener {
+                    swapModuleUpdateDialog()
+                }
+            } else {
+                swap_module_downloadable.visibility = View.GONE
+            }
+        }
 
         // 关闭swap
         btn_swap_close.setOnClickListener {
@@ -178,7 +186,29 @@ class ActivitySwap : ActivityBase() {
         }
     }
 
-    private fun swapOffDialog () {
+    // 获取新版本模块
+    private fun swapModuleUpdateDialog () {
+        val view = layoutInflater.inflate(R.layout.dialog_swap_module, null)
+        val dialog = DialogHelper.customDialog(this, view)
+
+        view.findViewById<View>(R.id.btn_cancel).setOnClickListener {
+            dialog.dismiss()
+        }
+        view.findViewById<View>(R.id.btn_confirm).setOnClickListener {
+            dialog.dismiss()
+
+            try {
+                val intent = Intent()
+                intent.setAction(Intent.ACTION_VIEW)
+                intent.data = Uri.parse(getString(R.string.swap_module_download_url))
+                context.startActivity(intent)
+            } catch (ex: java.lang.Exception) {
+                Toast.makeText(context, "启动下载失败！", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun swapOffDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_swap_delete, null)
         val deleteFile = view.findViewById<CompoundButton>(R.id.swap_delete_file)
         val dialog = DialogHelper.customDialog(this, view)
@@ -212,7 +242,7 @@ class ActivitySwap : ActivityBase() {
     }
 
     private var timer: Timer? = null
-    private fun startTimer () {
+    private fun startTimer() {
         stopTimer()
 
         timer = Timer()
@@ -223,7 +253,7 @@ class ActivitySwap : ActivityBase() {
         }, 0, 5000)
     }
 
-    private fun stopTimer () {
+    private fun stopTimer() {
         timer?.cancel()
         timer = null
     }
@@ -257,36 +287,42 @@ class ActivitySwap : ActivityBase() {
             "$this(${this / 100F}%)"
         }
 
-        swappinessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        swappinessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
                 swappinessText.text = p1.toString()
             }
+
             override fun onStartTrackingTouch(p0: SeekBar?) {
             }
+
             override fun onStopTrackingTouch(p0: SeekBar?) {
             }
         })
 
         // extra_free_kbytes设置
-        extraFreeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        extraFreeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
                 extraFreeText.text = p1.toString() + "(" + (p1 / 1024) + "MB)"
             }
+
             override fun onStartTrackingTouch(p0: SeekBar?) {
             }
+
             override fun onStopTrackingTouch(p0: SeekBar?) {
             }
         })
 
         watermarkScaleSeekBar.isEnabled = RootFile.fileExists("/proc/sys/vm/watermark_scale_factor")
-        watermarkScaleSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        watermarkScaleSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
                 watermarkScaleText.text = p1.run {
                     "$p1(${p1 / 100F}%)"
                 }
             }
+
             override fun onStartTrackingTouch(p0: SeekBar?) {
             }
+
             override fun onStopTrackingTouch(p0: SeekBar?) {
             }
         })
@@ -301,7 +337,6 @@ class ActivitySwap : ActivityBase() {
             val swappiness = swappinessSeekBar.progress
             val extraFree = extraFreeSeekBar.progress
             val watermarkScale = watermarkScaleSeekBar.progress
-
 
 
             val config = swapConfig.edit()
@@ -323,7 +358,7 @@ class ActivitySwap : ActivityBase() {
         }
     }
 
-    private fun zramResizeDialog () {
+    private fun zramResizeDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_zram_resize, null)
         val zramSizeBar = view.findViewById<SeekBar>(R.id.zram_size)
         val zramAutoStart = view.findViewById<CompoundButton>(R.id.zram_auto_start)
@@ -351,14 +386,16 @@ class ActivitySwap : ActivityBase() {
                         }
                     })
                     .show()
-                }
+        }
 
-        zramSizeBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        zramSizeBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 zramSizeText.text = (progress * 128).toString() + "MB"
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
             }
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
             }
         })
@@ -414,12 +451,14 @@ class ActivitySwap : ActivityBase() {
 
         val dialog = DialogHelper.customDialog(this, view)
 
-        swapSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        swapSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 swapSizeText.text = (progress * 128).toString() + "MB"
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
             }
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
             }
         })
@@ -480,7 +519,7 @@ class ActivitySwap : ActivityBase() {
         }
     }
 
-    private fun swapActiveDialog () {
+    private fun swapActiveDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_swap_active, null)
         val dialog = DialogHelper.customDialog(this, view)
 
@@ -507,7 +546,7 @@ class ActivitySwap : ActivityBase() {
             dialog.dismiss()
 
             val priority: Int
-            when(radioGroupSimulator.checked) {
+            when (radioGroupSimulator.checked) {
                 priorityHight -> {
                     priority = 5
                 }
@@ -540,8 +579,8 @@ class ActivitySwap : ActivityBase() {
                     }
                 }
                 val result = swapUtils.swapOn(
-                    swapPriority,
-                    swapConfig.getBoolean(SpfConfig.SWAP_SPF_SWAP_USE_LOOP, false)
+                        swapPriority,
+                        swapConfig.getBoolean(SpfConfig.SWAP_SPF_SWAP_USE_LOOP, false)
                 )
                 if (result.isNotEmpty()) {
                     Scene.toast(result, Toast.LENGTH_LONG)
@@ -555,13 +594,9 @@ class ActivitySwap : ActivityBase() {
         }
     }
 
-    private fun useConfig() {
-
-    }
-
     private var swapsTHRowCache: LinkedHashMap<String, String>? = null
     private val swapsTHRow: LinkedHashMap<String, String>
-        get () {
+        get() {
             if (swapsTHRowCache == null) {
                 swapsTHRowCache = LinkedHashMap<String, String>().apply {
                     put("path", getString(R.string.path))
@@ -589,6 +624,11 @@ class ActivitySwap : ActivityBase() {
         val zramStatus = getZRamStatus(compAlgorithm)
         val swapFileSize = swapUtils.swapFileSize
 
+        var loopName: String? = PropsUtils.getProp("vtools.swap.loop").split("/").lastOrNull()
+        if (loopName != null && !loopName.contains("loop")) {
+            loopName = null
+        }
+
         val list = ArrayList<HashMap<String, String>>()
         list.add(swapsTHRow)
 
@@ -615,16 +655,18 @@ class ActivitySwap : ActivityBase() {
             tr["priority"] = params[4]
             list.add(tr)
 
-            if (path.startsWith("/swapfile") || path.equals("/data/swapfile")) {
+            if (path.startsWith("/swapfile") || path.equals("/data/swapfile") || (loopName != null && path.contains(loopName))) {
                 try {
                     swapSize = size.toFloat()
                     swapFree = size.toFloat() - used.toFloat()
-                } catch (ex: java.lang.Exception) {}
+                } catch (ex: java.lang.Exception) {
+                }
             } else if (path.startsWith("/block/zram0") || path.startsWith("/dev/block/zram0")) {
                 try {
                     // zramSize = size.toFloat()
                     zramFree = size.toFloat() - used.toFloat()
-                } catch (ex: java.lang.Exception) {}
+                } catch (ex: java.lang.Exception) {
+                }
             }
         }
         val swaps = AdapterSwaplist(this, list)
@@ -696,12 +738,13 @@ class ActivitySwap : ActivityBase() {
                     txt_swap_auto_start.text = "--"
                 }
                 txt_zram_auto_start.text = if (swapConfig.getBoolean(SpfConfig.SWAP_SPF_ZRAM, false)) "重启后保持当前设置" else "重启后还原系统设定"
-            } catch (ex: java.lang.Exception) { }
+            } catch (ex: java.lang.Exception) {
+            }
         }
     }
 
     private val vmStat: String
-        get () {
+        get() {
             val vmstat = KernelProrp.getProp("/proc/vmstat")
             vmstat.run {
                 val text = StringBuilder()
@@ -710,9 +753,9 @@ class ActivitySwap : ActivityBase() {
                     var value = "";
                     for (row in split("\n")) {
                         if (row.startsWith("pswpin")) {
-                            prop="从SWAP读出："
+                            prop = "从SWAP读出："
                         } else if (row.startsWith("pswpout")) {
-                            prop="写入到SWAP："
+                            prop = "写入到SWAP："
                         } else {
                             continue
                         }
@@ -727,7 +770,8 @@ class ActivitySwap : ActivityBase() {
                             text.append("MB\n")
                         }
                     }
-                } catch (ex: Exception) {}
+                } catch (ex: Exception) {
+                }
 
                 return text.toString().trim()
             }
@@ -745,7 +789,6 @@ class ActivitySwap : ActivityBase() {
             var comprDataSize = KernelProrp.getProp("/sys/block/zram0/compr_data_size")
             if (origDataSize.isBlank() || comprDataSize.isBlank()) {
                 val mmStat = KernelProrp.getProp("/sys/block/zram0/mm_stat").split("[ ]+".toRegex())
-                Log.d("Scene", "Swap - " + mmStat)
                 if (mmStat.size > 1) {
                     origDataSize = mmStat[0]
                     comprDataSize = mmStat[1]
@@ -755,7 +798,9 @@ class ActivitySwap : ActivityBase() {
             // 为此磁盘分配的内存量
             val memUsedTotal = KernelProrp.getProp("/sys/block/zram0/mem_used_total")
 
-            if (memUsedTotal.length > 0) {
+            val zramWriteBackStat = if (swapUtils.zramWriteBackSupport) swapUtils.writeBackStat else null
+
+            val generalStats = if (memUsedTotal.length > 0) {
                 // 可用于存储的最大内存量
                 val memLimit = KernelProrp.getProp("/sys/block/zram0/mem_limit")
                 // 消耗的最大内存量
@@ -783,6 +828,17 @@ class ActivitySwap : ActivityBase() {
                         zramInfoValueParseMB(origDataSize),
                         zramInfoValueParseMB(comprDataSize),
                         zramCompressionRatio(origDataSize, comprDataSize))
+            }
+            if (zramWriteBackStat != null) {
+                return generalStats + "\n\n" + String.format(
+                        getString(R.string.swap_zram_writback_stat),
+                        zramWriteBackStat.backingDev,
+                        zramWriteBackStat.backed / 1024,
+                        zramWriteBackStat.backReads / 1024,
+                        zramWriteBackStat.backWrites / 1024
+                )
+            } else {
+                return generalStats
             }
         }
     }

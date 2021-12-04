@@ -173,7 +173,7 @@
                     <com.omarea.ui.HelpIcon
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        app:text="一般来说，默认的调度器就是最好的，不需要更换，除非你使用的内核有特殊的优化，或者你有特殊的需求。\n\n最大最小频率，建议配合功耗级(如果你有看到的话)别设置更改" />
+                        app:text="一般来说，默认的调度器就是最好的，不需要更换，除非你使用的内核有特殊的优化，或者你有特殊的需求。\n\n最大\最小频率选项，建议配合功耗级别选项(如果你有看到的话)使用" />
 
                     <TextView
                         style="@style/textTitle"
@@ -330,7 +330,7 @@
                     <com.omarea.ui.HelpIcon
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        app:text="Qualcomm在老旧SOC上使用的一些发热控制先关的模块，在骁龙835之后基本已被废弃。一般来说保持默认即可，如果你希望设备达到最佳性能，那么建议不要勾选任何一项！" />
+                        app:text="Qualcomm在老旧SOC上使用的一些发热控制相关的模块，在骁龙835之后基本已被废弃。一般来说保持默认即可，如果你希望设备达到最佳性能，那么建议不要勾选任何一项！" />
 
                     <TextView
                         style="@style/textTitle"

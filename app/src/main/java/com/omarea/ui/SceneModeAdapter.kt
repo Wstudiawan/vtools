@@ -3,7 +3,6 @@ package com.omarea.ui
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -19,8 +18,9 @@ import com.omarea.library.basic.AppInfoLoader
 import com.omarea.model.AppInfo
 import com.omarea.scene_mode.ModeSwitcher
 import com.omarea.vtools.R
-import kotlinx.coroutines.*
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -152,9 +152,9 @@ class SceneModeAdapter(private val context: Context, apps: ArrayList<AppInfo>, p
                 imgView!!.setImageDrawable(item.icon)
             }
 
-            if (item.enabledState != null) {
+            if (item.stateTags != null) {
                 summery?.run {
-                    val mode = item.enabledState.toString()
+                    val mode = item.stateTags.toString()
                     setTextColor(getColor(mode))
                     visibility = VISIBLE
                     text = mode.run {

@@ -1,21 +1,18 @@
 package com.omarea.xposed;
 
 import android.app.Activity;
-import android.app.AndroidAppHelper;
 import android.app.Notification;
 import android.app.Service;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.content.res.XModuleResources;
-import android.content.res.XResources;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Display;
-import android.view.Window;
 
 import com.omarea.store.XposedExtension;
+import com.omarea.xposed.wx.WeChatScanHook;
 
 import org.json.JSONObject;
 
@@ -30,7 +27,6 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedHelpers.callMethod;
-import static de.robv.android.xposed.XposedHelpers.getFloatField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
 
 /**
@@ -139,6 +135,10 @@ public class XposedInterface implements IXposedHookLoadPackage, IXposedHookZygot
             case "com.omarea.vboot":
                 new ActiveCheck().isActive(loadPackageParam);
                 break;
+            case "com.tencent.mm": {
+                new WeChatScanHook().hook(loadPackageParam);
+                break;
+            }
         }
 
         // 通过Xposed 启动 冻结的偏见应用
@@ -217,18 +217,6 @@ public class XposedInterface implements IXposedHookLoadPackage, IXposedHookZygot
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     param.setResult(dpi);
-                }
-            });
-
-            XposedHelpers.findAndHookMethod("android.util.DisplayMetrics", loadPackageParam.classLoader, "setToDefaults", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    DisplayMetrics displayMetrics = (DisplayMetrics) getObjectField(param.thisObject, "mMetrics");
-                    if (displayMetrics != null) {
-                        displayMetrics.scaledDensity = dpi / 160.0f;
-                        displayMetrics.densityDpi = dpi;
-                        displayMetrics.density = dpi / 160.0f;
-                    }
                 }
             });
 

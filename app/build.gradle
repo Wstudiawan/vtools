@@ -10,7 +10,7 @@ android {
         omarea_Signing {
             keyAlias 'omarea.com'
             keyPassword 'asdf1234'
-            storeFile file('D:/omoarea.jks')
+            storeFile file('./omoarea-test.jks')
             storePassword 'asdf1234'
         }
     }
@@ -21,21 +21,25 @@ android {
         applicationId "com.omarea.vtools"
         minSdkVersion 23
         targetSdkVersion 30
-        versionCode 202103241
-        versionName "4.2.0"
+        versionCode 202111131
+        versionName "4.7.3"
         externalNativeBuild {
             cmake {
                 cppFlags ""
             }
         }
+        ndk {
+            // abiFilters "armeabi", "armeabi-v7a", "arm64-v8a", "x86", "x86_64", "mips", "mips64"
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
     }
     buildTypes {
         release {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            zipAlignEnabled false
+            zipAlignEnabled true
             debuggable false
             jniDebuggable = false
-            // signingConfig signingConfigs.omarea_Signing
+            signingConfig signingConfigs.omarea_Signing
         }
         release_mini {
             shrinkResources true
@@ -46,7 +50,7 @@ android {
             jniDebuggable = false
         }
         debug {
-            // signingConfig signingConfigs.omarea_Signing
+            signingConfig signingConfigs.omarea_Signing
             minifyEnabled false
             debuggable true
             jniDebuggable = false
@@ -68,7 +72,7 @@ android {
             version "3.10.2"
         }
     }
-    ndkVersion '21.1.6352462'
+    ndkVersion '23.1.7779620'
 }
 
 dependencies {

@@ -87,12 +87,6 @@ class ActivityFreezeApps : ActivityBase() {
         return inputBmp;
     }
 
-    override fun onPause() {
-        super.onPause()
-        System.gc()
-    }
-
-
     private fun onViewCreated() {
         val tabHost = freeze_tabhost
         tabHost.setup()
@@ -455,6 +449,7 @@ class ActivityFreezeApps : ActivityBase() {
             appInfo.suspended = false
             (freeze_apps?.adapter as FreezeAppAdapter?)?.notifyDataSetChanged()
         }
+        SceneMode.getCurrentInstance()?.setFreezeAppLeaveTime(appInfo.packageName)
         try {
             val intent = this.packageManager.getLaunchIntentForPackage(appInfo.packageName.toString())
             // intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_ACTIVITY_TASK_ON_HOME)
@@ -480,12 +475,9 @@ class ActivityFreezeApps : ActivityBase() {
 
             if (intent != null) {
                 this.startActivity(intent)
-                SceneMode.getCurrentInstance()?.setFreezeAppStartTime(appInfo.packageName.toString())
             }
         } catch (ex: java.lang.Exception) {
         }
-
-        // TODO: this.finish()
     }
 
     private fun createShortcut(appInfo: AppInfo) {
@@ -532,7 +524,14 @@ class ActivityFreezeApps : ActivityBase() {
                         override fun onConfirm(apps: List<AdapterAppChooser.AppInfo>) {
                             addFreezeApps(ArrayList(apps.map { it.packageName }))
                         }
-                    }).show(supportFragmentManager, "freeze-app-add")
+                    })
+                    .setExcludeApps(arrayOf(
+                            context.packageName,
+                            "com.topjohnwu.magisk",
+                            "eu.chainfire.supersu",
+                            "com.android.settings"))
+                    .setAllowAllSelect(false)
+                    .show(supportFragmentManager, "freeze-app-add")
                 } catch (ex: java.lang.Exception) {
                 }
             }
@@ -673,7 +672,7 @@ class ActivityFreezeApps : ActivityBase() {
             val shortcutHelper = FreezeAppShortcutHelper()
             for (it in freezeApps) {
                 if (it.equals("com.android.vending")) {
-                    GAppsUtilis().enable(KeepShellPublic.getDefaultInstance());
+                    GAppsUtilis().enable(KeepShellPublic.secondaryKeepShell);
                 } else {
                     KeepShellPublic.doCmdSync("pm unsuspend ${it}\n pm unhide ${it}\n" + "pm enable ${it}")
                 }

@@ -7,21 +7,23 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.AdapterView
-import android.widget.CompoundButton
 import androidx.appcompat.app.AppCompatActivity
 import com.omarea.Scene
 import com.omarea.common.ui.DialogHelper
 import com.omarea.common.ui.OverScrollListView
 import com.omarea.common.ui.ProgressBarDialog
+import com.omarea.data.EventBus
+import com.omarea.data.EventType
 import com.omarea.model.AppInfo
 import com.omarea.scene_mode.ModeSwitcher
 import com.omarea.store.SceneConfigStore
 import com.omarea.store.SpfConfig
 import com.omarea.ui.SceneModeAdapter
-import com.omarea.utils.AccessibleServiceHelper
 import com.omarea.utils.AppListHelper
 import com.omarea.vtools.R
 import com.omarea.vtools.dialogs.DialogAppOrientation
@@ -52,10 +54,30 @@ class ActivityAppConfig2 : ActivityBase() {
 
     private lateinit var modeSwitcher: ModeSwitcher
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.scene_apps, menu)
+        return true
+    }
+
+    //右上角菜单
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.action_reset -> {
+                DialogHelper.confirm(this, "确定重置？", "这将清空你对单个应用配置的【性能调节、独立亮度、屏幕旋转、内存(cgroup)、自动加速、性能监视器】选项！", {
+                    sceneConfigStore.resetAll()
+                    spfPowercfg.all.clear()
+                    initDefaultConfig()
+                    recreate()
+                })
+            }
+        }
+        return true
+    }
+
     private fun onViewCreated() {
         modeSwitcher = ModeSwitcher()
         processBarDialog = ProgressBarDialog(this)
-        applistHelper = AppListHelper(this)
+        applistHelper = AppListHelper(this, false)
         spfPowercfg = getSharedPreferences(SpfConfig.POWER_CONFIG_SPF, Context.MODE_PRIVATE)
         globalSPF = getSharedPreferences(SpfConfig.GLOBAL_SPF, Context.MODE_PRIVATE)
         sceneConfigStore = SceneConfigStore(this.context)
@@ -171,22 +193,10 @@ class ActivityAppConfig2 : ActivityBase() {
 
     // 通知辅助服务配置变化
     private fun notifyService(app: String, mode: String) {
-        if (AccessibleServiceHelper().serviceRunning(this)) {
-            val intent = Intent(getString(R.string.scene_appchange_action))
-            intent.putExtra("app", app)
-            intent.putExtra("mode", mode)
-            sendBroadcast(intent)
-        }
-    }
-
-    private fun bindSPF(checkBox: CompoundButton, spf: SharedPreferences, prop: String, defValue: Boolean = false) {
-        checkBox.isChecked = spf.getBoolean(prop, defValue)
-        checkBox.setOnClickListener { view ->
-            spf.edit().putBoolean(prop, (view as CompoundButton).isChecked).apply()
-            if (AccessibleServiceHelper().serviceRunning(this)) {
-                sendBroadcast(Intent(getString(R.string.scene_service_config_change_action)))
-            }
-        }
+        EventBus.publish(EventType.SCENE_APP_CONFIG, HashMap<String, Any>().apply {
+            put("app", app)
+            put("mode", mode)
+        })
     }
 
     private fun initDefaultConfig() {
@@ -199,13 +209,16 @@ class ActivityAppConfig2 : ActivityBase() {
         for (item in resources.getStringArray(R.array.powercfg_game)) {
             spfPowercfg.edit().putString(item, ModeSwitcher.PERFORMANCE).apply()
         }
+        for (item in context.resources.getStringArray(R.array.powercfg_powersave)) {
+            spfPowercfg.edit().putString(item, ModeSwitcher.POWERSAVE).apply()
+        }
     }
 
     private fun sortAppList(list: ArrayList<AppInfo>): ArrayList<AppInfo> {
         list.sortWith { l, r ->
             try {
-                val les = l.enabledState.toString()
-                val res = r.enabledState.toString()
+                val les = l.stateTags.toString()
+                val res = r.stateTags.toString()
                 when {
                     les < res -> -1
                     les > res -> 1
@@ -303,7 +316,7 @@ class ActivityAppConfig2 : ActivityBase() {
     private fun setAppRowDesc(item: AppInfo) {
         item.selected = false
         val packageName = item.packageName.toString()
-        item.enabledState = spfPowercfg.getString(packageName, "")
+        item.stateTags = spfPowercfg.getString(packageName, "")
         val configInfo = sceneConfigStore.getAppConfig(packageName)
         item.sceneConfigInfo = configInfo
         val desc = StringBuilder()
@@ -340,6 +353,6 @@ class ActivityAppConfig2 : ActivityBase() {
 
     override fun onResume() {
         super.onResume()
-        title = getString(R.string.menu_scene_mode)
+        title = getString(R.string.menu_app_scene)
     }
 }

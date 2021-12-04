@@ -76,26 +76,6 @@ class TaskActionsExecutor(
                         updateNotification("关闭勿扰模式")
                         ZenModeUtils(context).off()
                     }
-                    TaskAction.MODE_POWERSAVE -> {
-                        updateNotification("切换省电模式")
-                        ModeSwitcher().executePowercfgMode(ModeSwitcher.POWERSAVE)
-                    }
-                    TaskAction.MODE_BALANCE -> {
-                        updateNotification("切换均衡模式")
-                        ModeSwitcher().executePowercfgMode(ModeSwitcher.BALANCE)
-                    }
-                    TaskAction.MODE_PERFORMANCE -> {
-                        updateNotification("切换性能模式")
-                        ModeSwitcher().executePowercfgMode(ModeSwitcher.PERFORMANCE)
-                    }
-                    TaskAction.MODE_FAST -> {
-                        updateNotification("切换极速模式")
-                        ModeSwitcher().executePowercfgMode(ModeSwitcher.FAST)
-                    }
-                    TaskAction.FROZEN_APPS -> {
-                        updateNotification("冻结偏见应用")
-                        SceneMode.getCurrentInstance()?.clearFreezeApp()
-                    }
                     else -> {
                     }
                 }

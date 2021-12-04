@@ -2,9 +2,7 @@ package com.omarea.vtools.activities
 
 import android.Manifest
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -455,21 +453,9 @@ class ActionPage : ActivityBase() {
     }
 
     override fun onDestroy() {
-        this.setExcludeFromRecents()
-        super.onDestroy()
-    }
-
-    private fun setExcludeFromRecents() {
         if (isTaskRoot) {
-            try {
-                val service = this.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                for (task in service.appTasks) {
-                    if (task.taskInfo.id == this.taskId) {
-                        task.setExcludeFromRecents(true)
-                    }
-                }
-            } catch (ex: Exception) {
-            }
+            excludeFromRecent()
         }
+        super.onDestroy()
     }
 }

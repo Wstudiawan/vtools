@@ -13,8 +13,10 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.omarea.Scene
+import com.omarea.common.ui.DialogHelper
 import com.omarea.common.ui.ThemeMode
 import com.omarea.kr.KrScriptConfig
+import com.omarea.library.shell.BatteryUtils
 import com.omarea.permissions.CheckRootStatus
 import com.omarea.shell_utils.BackupRestoreUtils
 import com.omarea.utils.AccessibleServiceHelper
@@ -59,6 +61,8 @@ class FragmentNav : Fragment(), View.OnClickListener {
     }
 
     private fun startService() {
+        AccessibleServiceHelper().stopSceneModeService(activity!!.applicationContext)
+
         /* 使用ROOT权限激活辅助服务会导致某些授权拿不到，导致事件触发不完整 */
         /*
 
@@ -69,6 +73,8 @@ class FragmentNav : Fragment(), View.OnClickListener {
                 try {
                     myHandler.post {
                         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        // intent.addFlags(Intent.FLAG_ACTIVITY_TASK_ON_HOME)
                         startActivity(intent)
                     }
                 } catch (e: Exception) {
@@ -89,6 +95,8 @@ class FragmentNav : Fragment(), View.OnClickListener {
         Scene.toast("请在系统设置里激活[Scene - 场景模式]选项", Toast.LENGTH_SHORT)
         try {
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // intent.addFlags(Intent.FLAG_ACTIVITY_TASK_ON_HOME)
             startActivity(intent)
         } catch (e: Exception) {
         }
@@ -189,8 +197,13 @@ class FragmentNav : Fragment(), View.OnClickListener {
                     return
                 }
                 R.id.nav_battery -> {
-                    val intent = Intent(context, ActivityBattery::class.java)
-                    startActivity(intent)
+                    val batteryUtils = BatteryUtils()
+                    if (batteryUtils.qcSettingSupport() || batteryUtils.bpSettingSupport()) {
+                        val intent = Intent(context, ActivityBattery::class.java)
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(context, "此功能不支持你的手机", Toast.LENGTH_SHORT).show()
+                    }
                     return
                 }
                 R.id.nav_charge -> {
@@ -265,19 +278,15 @@ class FragmentNav : Fragment(), View.OnClickListener {
                     return
                 }
                 R.id.nav_xposed_app -> {
-                    if (XposedCheck.xposedIsRunning()) {
+                    xposedCheck {
                         val intent = Intent(context, ActivityAppXposedConfig::class.java)
                         startActivity(intent)
-                    } else {
-                        Toast.makeText(context, "请先在Xposed管理器中重新勾选“Scene”，并重启手机", Toast.LENGTH_LONG).show()
                     }
                     return
                 }
                 R.id.nav_xposed_global -> {
-                    if (XposedCheck.xposedIsRunning()) {
+                    xposedCheck {
                         DialogXposedGlobalConfig(activity!!).show()
-                    } else {
-                        Toast.makeText(context, "请先在Xposed管理器中重新勾选“Scene”，并重启手机", Toast.LENGTH_LONG).show()
                     }
                     return
                 }
@@ -291,7 +300,18 @@ class FragmentNav : Fragment(), View.OnClickListener {
                 }
                 R.id.nav_processes -> {
                     val intent = Intent(context, ActivityProcess::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
+                    return
+                }
+                R.id.nav_fps_chart -> {
+                    val serviceState = AccessibleServiceHelper().serviceRunning(context!!)
+                    if (serviceState) {
+                        val intent = Intent(context, ActivityFpsChart::class.java)
+                        startActivity(intent)
+                    } else {
+                        Scene.toast("请在系统设置里激活[Scene - 场景模式]辅助服务", Toast.LENGTH_SHORT)
+                    }
                     return
                 }
                 R.id.nav_additional -> {
@@ -310,6 +330,36 @@ class FragmentNav : Fragment(), View.OnClickListener {
                     return
                 }
             }
+        }
+    }
+
+    private fun installVAddin() {
+        DialogHelper.warning(context!!, getString(R.string.scene_addin_miss), getString(R.string.scene_addin_miss_desc), {
+            try {
+                val uri = Uri.parse("http://vtools.omarea.com/")
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                startActivity(intent)
+            } catch (ex: Exception) {
+                Toast.makeText(context, "启动在线页面失败！", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun xposedCheck(onPass: Runnable) {
+        var vAddinsInstalled: Boolean
+        try {
+            vAddinsInstalled = context!!.packageManager.getPackageInfo("com.omarea.vaddin", 0) != null
+        } catch (ex: Exception) {
+            vAddinsInstalled = false
+        }
+        if (vAddinsInstalled) {
+            if (XposedCheck.xposedIsRunning()) {
+                onPass.run()
+            } else {
+                Toast.makeText(context, "请先在Xposed管理器中重新勾选“Scene”，并重启手机", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            installVAddin()
         }
     }
 

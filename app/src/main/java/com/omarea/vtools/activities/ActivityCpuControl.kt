@@ -70,7 +70,7 @@ class ActivityCpuControl : ActivityBase() {
 
         if (supportedGPU) {
             adrenoGovernors = GpuUtils.getGovernors()
-            adrenoFreqs = GpuUtils.getFreqs()
+            adrenoFreqs = GpuUtils.getAvailableFreqs()
             adrenoPLevels = GpuUtils.getAdrenoGPUPowerLevels()
         }
 
@@ -747,7 +747,7 @@ class ActivityCpuControl : ActivityBase() {
         if (cpuModeName != null) {
             cpu_apply_boot.visibility = View.GONE
 
-            ModeSwitcher().executePowercfgMode(cpuModeName!!)
+            ModeSwitcher().executePowercfgMode(cpuModeName!!, packageName)
 
             cpu_help_text.visibility = View.GONE
         }

@@ -10,7 +10,6 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
-import com.omarea.common.shared.FileWrite
 import com.omarea.common.shared.RawText
 import com.omarea.common.shell.KeepShell
 import com.omarea.common.shell.KernelProrp
@@ -19,6 +18,7 @@ import com.omarea.data.EventType
 import com.omarea.library.shell.BatteryUtils
 import com.omarea.library.shell.LMKUtils
 import com.omarea.library.shell.PropsUtils
+import com.omarea.library.shell.SwapUtils
 import com.omarea.scene_mode.ModeSwitcher
 import com.omarea.scene_mode.SceneMode
 import com.omarea.store.CpuConfigStorage
@@ -50,7 +50,7 @@ class BootService : IntentService("vtools-boot") {
             FULL_WAKE_LOCK          开启  变亮  变亮
         */
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "scene:BootService");
-        mWakeLock.acquire(60 * 60 * 1000) // 默认限制60分钟
+        mWakeLock.acquire(10 * 60 * 1000) // 默认限制10分钟
 
         nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         swapConfig = this.getSharedPreferences(SpfConfig.SWAP_SPF, Context.MODE_PRIVATE)
@@ -114,9 +114,9 @@ class BootService : IntentService("vtools-boot") {
         if (!globalPowercfg.isNullOrEmpty()) {
             updateNotification(getString(R.string.boot_use_powercfg))
 
-            val modeList = ModeSwitcher()
-            if (modeList.modeConfigCompleted()) {
-                modeList.executePowercfgMode(globalPowercfg, context.packageName)
+            val modeSwitcher = ModeSwitcher()
+            if (modeSwitcher.modeConfigCompleted()) {
+                modeSwitcher.executePowercfgMode(globalPowercfg, context.packageName)
             }
         }
 
@@ -192,18 +192,22 @@ class BootService : IntentService("vtools-boot") {
             KernelProrp.setProp("/sys/block/zram0/comp_algorithm", value)
         }
 
-    fun enableSwap(keepShell: KeepShell, context: Context) {
+    private fun enableSwap(keepShell: KeepShell, context: Context) {
         updateNotification(getString(R.string.boot_swapon))
-        val swapControlScript = FileWrite.writePrivateShellFile("addin/swap_control.sh", "addin/swap_control.sh", context)
         val swapPriority = swapConfig.getInt(SpfConfig.SWAP_SPF_SWAP_PRIORITY, -2)
-        val useLoop = if (swapConfig.getBoolean(SpfConfig.SWAP_SPF_SWAP_USE_LOOP, false)) "1" else "0"
-        keepShell.doCmdSync("sh $swapControlScript enable_swap $useLoop $swapPriority\n")
+        val useLoop = swapConfig.getBoolean(SpfConfig.SWAP_SPF_SWAP_USE_LOOP, false)
+        SwapUtils(context).swapOn(swapPriority, useLoop, keepShell)
     }
 
     /**
      * swapFirst：是否已开启可优先使用的swap，如果未开启，则在调整zram前，先将swappiness调为0，避免在回收时还在写入zram，导致回收时间变长！
      */
-    fun resizeZram(sizeVal: Int, algorithm: String = "", keepShell: KeepShell, swapFirst: Boolean = false) {
+    private fun resizeZram(sizeVal: Int, algorithm: String = "", keepShell: KeepShell, swapFirst: Boolean = false) {
+        keepShell.doCmdSync(
+    "if [[ ! -e /dev/block/zram0 ]] && [[ -e /sys/class/zram-control ]]; then\n" +
+         "  cat /sys/class/zram-control/hot_add\n" +
+         "fi"
+        )
         val currentSize = keepShell.doCmdSync("cat /sys/block/zram0/disksize")
         if (currentSize != "" + (sizeVal * 1024 * 1024L) || (algorithm.isNotEmpty() && algorithm != compAlgorithm)) {
             val sb = StringBuilder()
@@ -211,11 +215,21 @@ class BootService : IntentService("vtools-boot") {
             if (!swapFirst) {
                 sb.append("echo 0 > /proc/sys/vm/swappiness\n")
             }
-            sb.append("echo 3 > /sys/block/zram0/max_comp_streams\n")
+
+            sb.append("echo 4 > /sys/block/zram0/max_comp_streams\n")
             sb.append("sync\n")
+
+            sb.append("if [[ -f /sys/block/zram0/backing_dev ]]; then\n")
+            sb.append("  backing_dev=$(cat /sys/block/zram0/backing_dev)\n")
+            sb.append("fi\n")
+
             sb.append("echo 3 > /proc/sys/vm/drop_caches\n")
             sb.append("swapoff /dev/block/zram0 >/dev/null 2>&1\n")
             sb.append("echo 1 > /sys/block/zram0/reset\n")
+
+            sb.append("if [[ -f /sys/block/zram0/backing_dev ]]; then\n")
+            sb.append("  echo \"\$backing_dev\" > /sys/block/zram0/backing_dev\n")
+            sb.append("fi\n")
 
             if (algorithm.isNotEmpty()) {
                 sb.append("echo \"$algorithm\" > /sys/block/zram0/comp_algorithm\n")
@@ -227,7 +241,7 @@ class BootService : IntentService("vtools-boot") {
                 sb.append("echo " + (sizeVal * 1024 * 1024L) + " > /sys/block/zram0/disksize\n")
             }
 
-            sb.append("echo 3 > /sys/block/zram0/max_comp_streams\n")
+            sb.append("echo 4 > /sys/block/zram0/max_comp_streams\n")
             sb.append("mkswap /dev/block/zram0 >/dev/null 2>&1\n")
             sb.append("swapon /dev/block/zram0 -p 0 >/dev/null 2>&1\n")
             sb.append("echo \$swappiness_bak > /proc/sys/vm/swappiness")

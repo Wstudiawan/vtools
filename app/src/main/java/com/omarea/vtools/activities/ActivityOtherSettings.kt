@@ -7,12 +7,12 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.widget.CompoundButton
 import android.widget.Switch
-import android.widget.Toast
 import androidx.core.content.PermissionChecker
 import com.omarea.common.shell.KeepShellPublic
 import com.omarea.common.ui.DialogHelper
+import com.omarea.data.EventBus
+import com.omarea.data.EventType
 import com.omarea.shell_utils.AppErrorLogcatUtils
 import com.omarea.store.SpfConfig
 import com.omarea.utils.CommonCmds
@@ -59,6 +59,8 @@ class ActivityOtherSettings : ActivityBase() {
         settings_debug_layer.isChecked = spf.getBoolean(SpfConfig.GLOBAL_SPF_SCENE_LOG, false)
         settings_debug_layer.setOnClickListener {
             spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_SCENE_LOG, (it as Switch).isChecked).apply()
+
+            EventBus.publish(EventType.SERVICE_DEBUG)
         }
 
         settings_help_icon.isChecked = spf.getBoolean(SpfConfig.GLOBAL_SPF_HELP_ICON, true)
@@ -66,28 +68,14 @@ class ActivityOtherSettings : ActivityBase() {
             spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_HELP_ICON, (it as Switch).isChecked).apply()
         }
 
-        settings_classic_mode.isChecked = spf.getBoolean(SpfConfig.GLOBAL_SPF_SCENE_CLASSIC, false)
-        settings_classic_mode.setOnClickListener {
-            spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_SCENE_CLASSIC, (it as Switch).isChecked).apply()
-            if (it.isChecked) {
-                settings_delay_detection.isChecked = false
-                spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_DELAY_DETECTION, false).apply()
-            }
-        }
-
-        settings_delay_detection.isChecked = spf.getBoolean(SpfConfig.GLOBAL_SPF_DELAY_DETECTION, false)
-        settings_delay_detection.setOnClickListener {
-            if ((it as CompoundButton).isChecked && settings_classic_mode.isChecked) {
-                it.isChecked = false
-                Toast.makeText(context, R.string.settings_delay_detection_disabled, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_DELAY_DETECTION, (it as Switch).isChecked).apply()
-        }
-
         settings_auto_exit.isChecked = spf.getBoolean(SpfConfig.GLOBAL_SPF_AUTO_EXIT, true)
         settings_auto_exit.setOnClickListener {
             spf.edit().putBoolean(SpfConfig.GLOBAL_SPF_AUTO_EXIT, (it as Switch).isChecked).apply()
+        }
+
+        settings_black_notification.isChecked = spf.getBoolean(SpfConfig.GLOBAL_NIGHT_BLACK_NOTIFICATION, false)
+        settings_black_notification.setOnClickListener {
+            spf.edit().putBoolean(SpfConfig.GLOBAL_NIGHT_BLACK_NOTIFICATION, (it as Switch).isChecked).apply()
         }
     }
 

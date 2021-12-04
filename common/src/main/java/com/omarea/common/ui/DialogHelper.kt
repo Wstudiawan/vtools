@@ -6,12 +6,11 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.DialogInterface
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
-import android.view.LayoutInflater
-import android.view.View
-import android.view.Window
-import android.view.WindowManager
+import android.util.Log
+import android.view.*
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
@@ -23,9 +22,17 @@ class DialogHelper {
 
     class DialogWrap(private val d: AlertDialog) {
         public val context = dialog.context
+        private var mCancelable = true
+        public val isCancelable: Boolean
+            get () {
+                return mCancelable
+            }
 
-        public fun setCancelable(cancelable: Boolean) {
+        public fun setCancelable(cancelable: Boolean): DialogWrap {
+            mCancelable = cancelable
             d.setCancelable(cancelable)
+
+            return this
         }
 
         public fun setOnDismissListener(onDismissListener: DialogInterface.OnDismissListener): DialogWrap {
@@ -242,13 +249,40 @@ class DialogHelper {
             return this.confirm(context, "", "", contentView, onConfirm, onCancel)
         }
 
-        private fun getWindowBackground(context: Context, defaultColor:Int = Color.TRANSPARENT): Int {
+        private fun getWindowBackground(context: Context, defaultColor: Int = Color.TRANSPARENT): Int {
             // val attrsArray = intArrayOf(android.R.attr.windowBackground)
             val attrsArray = intArrayOf(android.R.attr.background)
             val typedArray = context.obtainStyledAttributes(attrsArray)
             val color = typedArray.getColor(0, defaultColor)
             typedArray.recycle()
             return color
+        }
+
+        // 设置点击空白区域关闭弹窗
+        private fun setOutsideTouchDismiss(view: View, dialogWrap: DialogWrap): DialogWrap {
+            val dialog = dialogWrap.dialog
+            val rootView = dialog.window?.decorView
+            rootView?.setOnTouchListener(object : View.OnTouchListener {
+                override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+                    if (event != null && event.action == MotionEvent.ACTION_UP) {
+                        val x = event.x.toInt()
+                        val y = event.y.toInt()
+                        val rect = Rect()
+                        view.getGlobalVisibleRect(rect)
+                        if (!rect.contains(x, y)) {
+                            // TODO: 从何获取呢...
+                            val mCancelable = dialogWrap.isCancelable // false
+                            if (mCancelable) {
+                                dialogWrap.dismiss()
+                            }
+                        }
+                        return true
+                    }
+                    return false
+                }
+            })
+
+            return dialogWrap
         }
 
         private fun getStatusBarColor(context: Context): Int {
@@ -297,7 +331,10 @@ class DialogHelper {
         }
 
         fun customDialog(context: Context, view: View, cancelable: Boolean = true): DialogWrap {
-            val useBlur = context is Activity
+            val useBlur = (
+                        context is Activity &&
+                        context.window.attributes.flags and WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER == 0
+                    )
 
             val dialog = (if (useBlur) {
                 AlertDialog.Builder(context, R.style.custom_alert_dialog)
@@ -341,7 +378,7 @@ class DialogHelper {
                 }
             }
 
-            return DialogWrap(dialog)
+            return setOutsideTouchDismiss(view, DialogWrap(dialog).setCancelable(cancelable))
         }
 
         fun helpInfo(context: Context, title: Int, message: Int): DialogWrap {
@@ -355,9 +392,13 @@ class DialogHelper {
         }
 
         private fun isNightMode(context: Context): Boolean {
-            if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
+            val nightMode = AppCompatDelegate.getDefaultNightMode()
+            if (nightMode == AppCompatDelegate.MODE_NIGHT_YES) {
                 return true
-            } else if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
+            } else if (
+                    nightMode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM ||
+                    nightMode == AppCompatDelegate.MODE_NIGHT_UNSPECIFIED
+            ) {
                 val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
                 return uiModeManager.nightMode == UiModeManager.MODE_NIGHT_YES
             } else {

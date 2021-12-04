@@ -34,7 +34,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="正在使用外部配置(/data/powercfg.sh)\n如需换回Scene3自带配置，或通过Scene导入配置，请点右侧删除按钮"
+                    android:text="正在使用外部配置(/data/powercfg.sh)\n如需换回Scene自带配置，或通过Scene导入配置，请点右侧删除按钮"
                     android:textSize="13dp" />
 
                 <ImageButton
@@ -296,6 +296,26 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/extreme_performance"
+                android:visibility="gone"
+                style="@style/ListCardItem"
+                android:orientation="vertical">
+
+                <Switch
+                    android:id="@+id/extreme_performance_on"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="卓越性能" />
+
+                <TextView
+                    style="@style/textSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="解除游戏限频/锁帧及高温提示，请注意保护您的设备！" />
+            </LinearLayout>
+
+            <LinearLayout
                 style="@style/ListCardItem">
 
                 <LinearLayout
@@ -340,7 +360,7 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center_vertical"
                             android:layout_weight="1"
-                            android:text="全局默认" />
+                            android:text="全局默认（亮屏状态）" />
 
                         <Spinner
                             android:id="@+id/first_mode"
@@ -349,6 +369,34 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center_vertical|right"
                             android:entries="@array/default_powercfg_mode_options"
+                            android:paddingRight="0dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_marginTop="@dimen/activity_vertical_margin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <com.omarea.ui.HelpIcon
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:text="手机进入待机状态后，将切换至选定的模式" />
+
+                        <TextView
+                            style="@style/textTitle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_vertical"
+                            android:layout_weight="1"
+                            android:text="待机时切换" />
+
+                        <Spinner
+                            android:id="@+id/sleep_mode"
+                            style="@style/SceneSpinner"
+                            android:layout_width="110dp"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_vertical|right"
+                            android:entries="@array/sleep_powercfg_mode_options"
                             android:paddingRight="0dp" />
                     </LinearLayout>
 
@@ -362,7 +410,7 @@
                         <com.omarea.ui.HelpIcon
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            app:text="正常情况下，Scene会尽可能的减少模式切换\n\n例如：在几个同为“省电模式”的应用之前来回切换，是不会重复运行模式切换代码的\n\n除非是你发现每次切换应用，调度参数就会被系统重置，那才需要开启这个选项~" />
+                            app:text="一般模式下，Scene只会在需要变换档位时执行调度配置文件，例如：在多个设为[省电模式]的应用之间切换，调度配置文件只会被执行一次。\n\n严格模式下，Scene会在每次前台应用发生变化时都执行调度配置文件，并告知被切换到前台运行的应用(包名)。调度配置作者可利用此特性，为不同的应用单独设计调度参数，而不再受限于只有四个档位的限制。\n\n骁龙855、865、888机型使用[经典配置][偏重性能]配置源时，可开启严格模式，在以下应用中体验专属优化:\n原神(官服、B服、小米服)\n闲鱼、淘宝、京东、天猫、百度贴吧、朴朴、美团、ES、RE\n双生视界、王者荣耀\n哔哩哔哩、抖音\n\n其它处理器机型，除非正在使用外部配置源头(且配置作者已注明支持此特性)，否则无需开启此选项！" />
 
                         <Switch
                             android:id="@+id/strict_mode"
@@ -371,7 +419,7 @@
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center_vertical"
-                            android:text="重复执行" />
+                            android:text="严格模式" />
 
                     </LinearLayout>
 

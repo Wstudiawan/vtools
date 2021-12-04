@@ -1,7 +1,6 @@
 package com.omarea.vtools.popup
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -20,6 +19,9 @@ import com.omarea.store.SceneConfigStore
 import com.omarea.store.SpfConfig
 import com.omarea.utils.AccessibleServiceHelper
 import com.omarea.vtools.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * 弹窗辅助类
@@ -29,7 +31,7 @@ import com.omarea.vtools.R
 class FloatPowercfgSelector(context: Context) {
     private val mContext: Context = context.applicationContext
     private var mView: View? = null
-    private var modeList = ModeSwitcher()
+    private var modeSwitcher = ModeSwitcher()
 
     /**
      * 显示弹出框
@@ -101,17 +103,16 @@ class FloatPowercfgSelector(context: Context) {
      */
     private fun reStartService(app: String, mode: String) {
         if (AccessibleServiceHelper().serviceRunning(mContext)) {
-            val intent = Intent(mContext.getString(R.string.scene_appchange_action))
-            intent.putExtra("app", app)
-            intent.putExtra("mode", mode)
-            mContext.sendBroadcast(intent)
+            EventBus.publish(EventType.SCENE_APP_CONFIG, HashMap<String, Any>().apply {
+                put("app", app)
+                put("mode", mode)
+            })
         }
     }
 
     private fun setUpView(context: Context, packageName: String): View {
         val store = SceneConfigStore(context)
         val appConfig = store.getAppConfig(packageName)
-        var needKeyCapture = store.needKeyCapture()
 
         val view = LayoutInflater.from(context).inflate(R.layout.fw_powercfg_selector, null)
         val titleView = view.findViewById<TextView>(R.id.fw_title)
@@ -120,9 +121,9 @@ class FloatPowercfgSelector(context: Context) {
         val globalSPF = context.getSharedPreferences(SpfConfig.GLOBAL_SPF, Context.MODE_PRIVATE)
         val serviceRunning = AccessibleServiceHelper().serviceRunning(context)
         var dynamic = serviceRunning && globalSPF.getBoolean(SpfConfig.GLOBAL_SPF_DYNAMIC_CONTROL, SpfConfig.GLOBAL_SPF_DYNAMIC_CONTROL_DEFAULT)
-        val defaultMode = globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_FIRST_MODE, "balance")
-        var selectedMode = (if (dynamic) powerCfgSPF.getString(packageName, defaultMode) else modeList.getCurrentPowerMode())!!
-        val modeConfigCompleted = ModeSwitcher().modeConfigCompleted()
+        val defaultMode = globalSPF.getString(SpfConfig.GLOBAL_SPF_POWERCFG_FIRST_MODE, ModeSwitcher.BALANCE)
+        var selectedMode = (if (dynamic) powerCfgSPF.getString(packageName, defaultMode) else ModeSwitcher.getCurrentPowerMode())!!
+        val modeConfigCompleted = modeSwitcher.modeConfigCompleted()
 
         try {
             val pm = context.packageManager
@@ -160,7 +161,7 @@ class FloatPowercfgSelector(context: Context) {
 
         val switchMode = Runnable {
             updateUI.run()
-            modeList.executePowercfgMode(selectedMode, packageName)
+            modeSwitcher.executePowercfgMode(selectedMode, packageName)
             if (dynamic) {
                 if (!packageName.equals(context.packageName)) {
                     if (selectedMode == defaultMode) {
@@ -180,7 +181,7 @@ class FloatPowercfgSelector(context: Context) {
             isEnabled = serviceRunning && modeConfigCompleted
             setOnClickListener {
                 globalSPF.edit().putBoolean(SpfConfig.GLOBAL_SPF_DYNAMIC_CONTROL, (it as Switch).isChecked).apply()
-                reStartService()
+                EventBus.publish(EventType.SCENE_CONFIG)
                 dynamic = isChecked
 
                 btn_ignore.visibility = if (dynamic) View.VISIBLE else View.GONE
@@ -192,31 +193,47 @@ class FloatPowercfgSelector(context: Context) {
                         switchMode.run()
                     }
                 } else {
-                    selectedMode = modeList.getCurrentPowerMode()
+                    selectedMode = ModeSwitcher.getCurrentPowerMode()
                     updateUI.run()
                 }
             }
         }
         btn_ignore.visibility = if (dynamic) View.VISIBLE else View.GONE
 
+        // 震动反馈
+        val hapticFeedback = Runnable {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    try {
+                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    } catch (ex: Exception) {}
+                }
+            }
+        }
+
         if (modeConfigCompleted) {
             btn_powersave.setOnClickListener {
+                hapticFeedback.run()
                 selectedMode = ModeSwitcher.POWERSAVE
                 switchMode.run()
             }
             btn_defaultmode.setOnClickListener {
+                hapticFeedback.run()
                 selectedMode = ModeSwitcher.BALANCE
                 switchMode.run()
             }
             btn_gamemode.setOnClickListener {
+                hapticFeedback.run()
                 selectedMode = ModeSwitcher.PERFORMANCE
                 switchMode.run()
             }
             btn_fastmode.setOnClickListener {
+                hapticFeedback.run()
                 selectedMode = ModeSwitcher.FAST
                 switchMode.run()
             }
             btn_ignore.setOnClickListener {
+                hapticFeedback.run()
                 if (dynamic) {
                     if (selectedMode != ModeSwitcher.IGONED) {
                         selectedMode = ModeSwitcher.IGONED
@@ -237,7 +254,7 @@ class FloatPowercfgSelector(context: Context) {
                 appConfig.aloneLight = isChecked
                 store.setAppConfig(appConfig)
 
-                notifyAppConfigChanged(context, packageName)
+                notifyAppConfigChanged(packageName)
             }
         }
         // 禁止通知
@@ -257,23 +274,7 @@ class FloatPowercfgSelector(context: Context) {
                 appConfig.disNotice = isChecked
                 store.setAppConfig(appConfig)
 
-                notifyAppConfigChanged(context, packageName)
-            }
-        }
-
-        // 点击禁用按键
-        val fw_app_dis_button = view.findViewById<CheckBox>(R.id.fw_app_dis_button).apply {
-            isChecked = appConfig.disButton
-            setOnClickListener {
-                val isChecked = (it as CheckBox).isChecked
-                appConfig.disButton = isChecked
-                store.setAppConfig(appConfig)
-                if (isChecked && !needKeyCapture) {
-                    context.sendBroadcast(Intent(context.getString(R.string.scene_service_config_change_action)))
-                    needKeyCapture = true
-                }
-
-                notifyAppConfigChanged(context, packageName)
+                notifyAppConfigChanged(packageName)
             }
         }
 
@@ -289,7 +290,7 @@ class FloatPowercfgSelector(context: Context) {
                 } else {
                     LocationHelper().disableGPS()
                 }
-                notifyAppConfigChanged(context, packageName)
+                notifyAppConfigChanged(packageName)
             }
         }
 
@@ -301,7 +302,6 @@ class FloatPowercfgSelector(context: Context) {
 
         if (!serviceRunning || packageName.equals(context.packageName)) {
             fw_app_light.isEnabled = false
-            fw_app_dis_button.isEnabled = false
             fw_app_dis_notice.isEnabled = false
             fw_app_gps.isEnabled = false
         }
@@ -363,13 +363,13 @@ class FloatPowercfgSelector(context: Context) {
 
         // mini监视悬浮窗开关
         view.findViewById<View>(R.id.fw_float_monitor_mini).run {
-            alpha = if (FloatMonitorGame.show == true) 1f else 0.5f
+            alpha = if (FloatMonitorMini.show == true) 1f else 0.5f
             setOnClickListener {
-                if (FloatMonitorGame.show == true) {
-                    FloatMonitorGame(context).hidePopupWindow()
+                if (FloatMonitorMini.show == true) {
+                    FloatMonitorMini(context).hidePopupWindow()
                     it.alpha = 0.3f
                 } else {
-                    FloatMonitorGame(context).showPopupWindow()
+                    FloatMonitorMini(context).showPopupWindow()
                     it.alpha = 1f
                 }
             }
@@ -395,19 +395,10 @@ class FloatPowercfgSelector(context: Context) {
         }
     }
 
-    private fun notifyAppConfigChanged(context: Context, packageName: String) {
-        val intent = Intent(context.getString(R.string.scene_appchange_action))
-        intent.putExtra("app", packageName)
-        context.sendBroadcast(intent)
-    }
-
-    /**
-     * 重启辅助服务
-     */
-    private fun reStartService() {
-        if (AccessibleServiceHelper().serviceRunning(mContext)) {
-            mContext.sendBroadcast(Intent(mContext.getString(R.string.scene_change_action)))
-        }
+    private fun notifyAppConfigChanged(app: String) {
+        EventBus.publish(EventType.SCENE_APP_CONFIG, HashMap<String, Any>().apply {
+            put("app", app)
+        })
     }
 
     companion object {

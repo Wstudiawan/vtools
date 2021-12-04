@@ -3,6 +3,7 @@ package com.omarea.vtools.popup
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Point
@@ -14,6 +15,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.*
@@ -22,6 +24,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.omarea.Scene
+import com.omarea.data.GlobalStatus
 import com.omarea.library.shell.*
 import com.omarea.store.SpfConfig
 import com.omarea.ui.FloatMonitorBatteryView
@@ -39,9 +43,9 @@ class FloatMonitor(private val mContext: Context) {
      * 显示弹出框
      * @param context
      */
-    fun showPopupWindow() {
+    fun showPopupWindow(): Boolean {
         if (show!!) {
-            return
+            return true
         }
         if (batteryManager == null) {
             batteryManager = mContext.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
@@ -49,14 +53,14 @@ class FloatMonitor(private val mContext: Context) {
 
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(mContext)) {
             Toast.makeText(mContext, mContext.getString(R.string.permission_float), Toast.LENGTH_LONG).show()
-            return
+            return false
         }
 
         show = true
         // 获取WindowManager
         mWindowManager = mContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        mView = setUpView(mContext)
+        val view = setUpView(mContext)
 
         val params = LayoutParams()
         val monitorStorage = mContext.getSharedPreferences("float_monitor_storage", Context.MODE_PRIVATE)
@@ -92,69 +96,80 @@ class FloatMonitor(private val mContext: Context) {
             params.x = 0
         } else {
         }
-        mWindowManager!!.addView(mView, params)
 
-        // 添加触摸事件
-        mView!!.setOnTouchListener(object : View.OnTouchListener {
-            private var isTouchDown = false
-            private var touchStartX = 0f
-            private var touchStartY = 0f
-            private var touchStartRawX = 0f
-            private var touchStartRawY = 0f
-            private var touchStartTime = 0L
-            private var lastClickTime = 0L
+        try {
+            mWindowManager!!.addView(view, params)
+            mView = view
 
-            private fun onClick() {
-                if (System.currentTimeMillis() - lastClickTime < 300) {
-                    hidePopupWindow()
-                } else {
-                    lastClickTime = System.currentTimeMillis()
+            // 添加触摸事件
+            view.setOnTouchListener(object : View.OnTouchListener {
+                private var isTouchDown = false
+                private var touchStartX = 0f
+                private var touchStartY = 0f
+                private var touchStartRawX = 0f
+                private var touchStartRawY = 0f
+                private var touchStartTime = 0L
+                private var lastClickTime = 0L
+
+                private fun onClick() {
+                    try {
+                        if (System.currentTimeMillis() - lastClickTime < 300) {
+                            hidePopupWindow()
+                        } else {
+                            lastClickTime = System.currentTimeMillis()
+                        }
+                    } catch (ex: Exception) {}
                 }
-            }
 
-            @SuppressLint("ClickableViewAccessibility")
-            override fun onTouch(v: View?, event: MotionEvent?): Boolean {
-                if (event != null) {
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
-                            touchStartX = event.getX()
-                            touchStartY = event.getY()
-                            touchStartRawX = event.rawX
-                            touchStartRawY = event.rawY
-                            isTouchDown = true
-                            touchStartTime = System.currentTimeMillis()
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            if (isTouchDown) {
-                                params.x = (event.rawX - touchStartX).toInt()
-                                params.y = (event.rawY - touchStartY).toInt()
-                                mWindowManager!!.updateViewLayout(v, params)
+                @SuppressLint("ClickableViewAccessibility")
+                override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+                    if (event != null) {
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                touchStartX = event.getX()
+                                touchStartY = event.getY()
+                                touchStartRawX = event.rawX
+                                touchStartRawY = event.rawY
+                                isTouchDown = true
+                                touchStartTime = System.currentTimeMillis()
                             }
-                        }
-                        MotionEvent.ACTION_UP -> {
-                            if (System.currentTimeMillis() - touchStartTime < 180) {
-                                if (Math.abs(event.rawX - touchStartRawX) < 15 && Math.abs(event.rawY - touchStartRawY) < 15) {
-                                    onClick()
-                                } else {
-                                    monitorStorage.edit().putInt("x", params.x).putInt("y", params.y).apply()
+                            MotionEvent.ACTION_MOVE -> {
+                                if (isTouchDown) {
+                                    params.x = (event.rawX - touchStartX).toInt()
+                                    params.y = (event.rawY - touchStartY).toInt()
+                                    mWindowManager!!.updateViewLayout(v, params)
                                 }
                             }
-                            isTouchDown = false
-                            if (Math.abs(event.rawX - touchStartRawX) > 15 || Math.abs(event.rawY - touchStartRawY) > 15) {
-                                return true
+                            MotionEvent.ACTION_UP -> {
+                                if (System.currentTimeMillis() - touchStartTime < 180) {
+                                    if (Math.abs(event.rawX - touchStartRawX) < 15 && Math.abs(event.rawY - touchStartRawY) < 15) {
+                                        onClick()
+                                    } else {
+                                        monitorStorage.edit().putInt("x", params.x).putInt("y", params.y).apply()
+                                    }
+                                }
+                                isTouchDown = false
+                                if (Math.abs(event.rawX - touchStartRawX) > 15 || Math.abs(event.rawY - touchStartRawY) > 15) {
+                                    return true
+                                }
+                            }
+                            MotionEvent.ACTION_OUTSIDE,
+                            MotionEvent.ACTION_CANCEL -> {
+                                isTouchDown = false
                             }
                         }
-                        MotionEvent.ACTION_OUTSIDE,
-                        MotionEvent.ACTION_CANCEL -> {
-                            isTouchDown = false
-                        }
                     }
+                    return false
                 }
-                return false
-            }
-        })
+            })
 
-        startTimer()
+            startTimer()
+
+            return true
+        } catch (ex: Exception) {
+            Scene.toast("FloatMonitor Error\n" + ex.message)
+            return false
+        }
     }
 
     private fun stopTimer() {
@@ -192,10 +207,8 @@ class FloatMonitor(private val mContext: Context) {
 
     private var activityManager: ActivityManager? = null
     private var myHandler = Handler(Looper.getMainLooper())
-    private var batteryUnit = BatteryUtils()
     private val info = ActivityManager.MemoryInfo()
 
-    private var sum = -1
     private var totalMem = 0
     private var availMem = 0
     private var coreCount = -1;
@@ -205,6 +218,23 @@ class FloatMonitor(private val mContext: Context) {
 
     private val fpsUtils = FpsUtils()
     private var batteryManager: BatteryManager? = null
+
+    private fun whiteBoldSpan(text: String): SpannableString {
+        return SpannableString(text).apply {
+            setSpan(ForegroundColorSpan(Color.WHITE), 0, text.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(StyleSpan(Typeface.BOLD), 0, text.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    private var configSpf: SharedPreferences? = null
+    private val config: SharedPreferences
+        get () {
+            if (configSpf == null) {
+                val soc = PlatformUtils().getCPUName()
+                configSpf = mContext.getSharedPreferences(soc, Context.MODE_PRIVATE)
+            }
+            return configSpf!!
+    }
 
     private fun updateInfo() {
         if (coreCount < 1) {
@@ -241,8 +271,6 @@ class FloatMonitor(private val mContext: Context) {
             cpuLoad = 0.toDouble();
         }
 
-        val batteryStatus = batteryUnit.getBatteryTemperature()
-
         // 电池电流
         val batteryCurrentNow = batteryManager?.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         val batteryCurrentNowMa = if (batteryCurrentNow != null) {
@@ -252,95 +280,74 @@ class FloatMonitor(private val mContext: Context) {
         }
 
         // GPU内存使用
-        var gpuMemoryUsage = GpuUtils.getMemoryUsage()
+        val gpuMemoryUsage = GpuUtils.getMemoryUsage()
 
-        myHandler.post {
-            if (showOtherInfo) {
-                otherInfo!!.setText("")
+        val otherInfoBuilder = SpannableStringBuilder()
+        if (showOtherInfo) {
+            totalMem = (info.totalMem / 1024 / 1024f).toInt()
+            availMem = (info.availMem / 1024 / 1024f).toInt()
+            val ramInfoText = "#RAM  " + ((totalMem - availMem) * 100 / totalMem).toString() + "%"
 
-                totalMem = (info.totalMem / 1024 / 1024f).toInt()
-                availMem = (info.availMem / 1024 / 1024f).toInt()
-                val ramInfoText = "#RAM  " + ((totalMem - availMem) * 100 / totalMem).toString() + "%"
-
-                val ramSpannable = SpannableString(ramInfoText)
-                val styleSpan = StyleSpan(Typeface.BOLD);
-                ramSpannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, ramInfoText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                ramSpannable.setSpan(styleSpan, 0, ramInfoText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                otherInfo?.append(ramSpannable)
-                otherInfo?.append("\n")
+            otherInfoBuilder.run {
+                append(whiteBoldSpan(ramInfoText))
+                append("\n")
 
                 if (gpuMemoryUsage != null) {
-                    gpuMemoryUsage = "#GMEM " + gpuMemoryUsage
-                    val gmemSpannable = SpannableString(gpuMemoryUsage)
-                    val styleSpan = StyleSpan(Typeface.BOLD);
-                    gmemSpannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, gpuMemoryUsage.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    gmemSpannable.setSpan(styleSpan, 0, gpuMemoryUsage.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    otherInfo?.append(gmemSpannable)
-                    otherInfo?.append("\n")
+                    append(whiteBoldSpan("#GMEM " + gpuMemoryUsage))
+                    append("\n")
                 }
 
-                var clusterIndex = 0
-                for (cluster in clusters) {
+                for ((clusterIndex, cluster) in clusters.withIndex()) {
                     if (clusterIndex != 0) {
-                        otherInfo?.append("\n")
+                        append("\n")
                     }
-                    if (cluster.size > 0) {
+                    if (cluster.isNotEmpty()) {
                         try {
                             val title = "#" + cluster[0] + "~" + cluster[cluster.size - 1] + "  " + subFreqStr(clustersFreq.get(clusterIndex)) + "Mhz";
-                            val titleSpannable = SpannableString(title)
-                            val styleSpan = StyleSpan(Typeface.BOLD)
-                            titleSpannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, title.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                            titleSpannable.setSpan(styleSpan, 0, title.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                            otherInfo?.append(titleSpannable)
+                            append(whiteBoldSpan(title))
 
                             val otherInfos = StringBuilder("")
                             for (core in cluster) {
-                                otherInfos.append("\n")
-                                otherInfos.append("CPU")
-                                otherInfos.append(core)
-                                otherInfos.append("  ")
+                                otherInfos.append("\nCPU").append(core).append("  ")
                                 val load = loads.get(core.toInt())
                                 if (load != null) {
                                     if (load < 10) {
                                         otherInfos.append(" ")
-                                        otherInfos.append(load.toInt())
-                                        otherInfos.append("%")
-                                    } else {
-                                        otherInfos.append(load.toInt())
-                                        otherInfos.append("%")
                                     }
+                                    otherInfos.append(load.toInt()).append("%")
                                 } else {
                                     otherInfos.append("×")
                                 }
                             }
-                            otherInfo?.append(otherInfos.toString())
+                            append(otherInfos.toString())
                         } catch (ex: Exception) {
                         }
                     }
-                    clusterIndex++
                 }
 
                 fpsUtils.currentFps?.run {
-                    otherInfo?.append("\n")
-
-                    val fpsInfo = "#FPS  $this"
-                    val fpsSpannable = SpannableString(fpsInfo);
-                    fpsSpannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, fpsInfo.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    fpsSpannable.setSpan(StyleSpan(Typeface.BOLD), 0, fpsInfo.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    otherInfo?.append(fpsSpannable)
+                    append("\n")
+                    append(whiteBoldSpan("#FPS  $this"))
                 }
 
                 batteryCurrentNowMa?.run {
                     if (this > -20000 && this < 20000) {
-                        otherInfo?.append("\n")
+                        append("\n")
 
                         val batteryInfo = "#BAT  " + (if (this > 0) ("+" + this) else this) + "mA"
-                        val batterySpannable = SpannableString(batteryInfo);
-                        batterySpannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, batteryInfo.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                        batterySpannable.setSpan(StyleSpan(Typeface.BOLD), 0, batteryInfo.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                        otherInfo?.append(batterySpannable)
+                        append(whiteBoldSpan(batteryInfo))
                     }
                 }
+            }
+        }
+
+        val temperature = GlobalStatus.updateBatteryTemperature()
+
+        myHandler.post {
+            if (showOtherInfo) {
+                otherInfo?.setText(null)
+
+                otherInfo?.text = otherInfoBuilder
             }
 
             cpuChart!!.setData(100f, (100 - cpuLoad).toFloat())
@@ -351,14 +358,14 @@ class FloatMonitor(private val mContext: Context) {
                 gpuChart!!.setData(100f, (100f - gpuLoad))
             }
 
-            temperatureChart!!.setData(100f, 100f - batteryStatus.level, batteryStatus.temperature)
-            temperatureText!!.setText(batteryStatus.temperature.toString() + "°C")
-            batteryLevelText!!.setText(batteryStatus.level.toString() + "%")
-            if (batteryStatus.statusText == "2") {
-                chargerView!!.visibility = View.VISIBLE
+            temperatureChart!!.setData(100f, 100f - GlobalStatus.batteryCapacity, temperature)
+            temperatureText!!.setText(temperature.toString() + "°C")
+            batteryLevelText!!.setText(GlobalStatus.batteryCapacity.toString() + "%")
+            chargerView!!.visibility = (if (GlobalStatus.batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                View.VISIBLE
             } else {
-                chargerView!!.visibility = View.GONE
-            }
+                View.GONE
+            })
         }
     }
 
@@ -379,7 +386,9 @@ class FloatMonitor(private val mContext: Context) {
     fun hidePopupWindow() {
         stopTimer()
         if (show!! && null != mView) {
-            mWindowManager!!.removeView(mView)
+            try {
+                mWindowManager?.removeViewImmediate(mView)
+            } catch (ex: Exception) {}
             mView = null
             show = false
         }
@@ -405,11 +414,13 @@ class FloatMonitor(private val mContext: Context) {
         activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
         view!!.setOnClickListener {
-            otherInfo?.visibility = if (showOtherInfo) View.GONE else View.VISIBLE
-            // it.findViewById<View>(R.id.fw_ram_info).visibility = if (showOtherInfo) View.GONE else View.VISIBLE
-            it.findViewById<LinearLayout>(R.id.fw_chart_list).orientation = if (showOtherInfo) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-            (mView as LinearLayout).orientation = if (showOtherInfo) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-            showOtherInfo = !showOtherInfo
+            try {
+                otherInfo?.visibility = if (showOtherInfo) View.GONE else View.VISIBLE
+                // it.findViewById<View>(R.id.fw_ram_info).visibility = if (showOtherInfo) View.GONE else View.VISIBLE
+                it.findViewById<LinearLayout>(R.id.fw_chart_list).orientation = if (showOtherInfo) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+                (mView as LinearLayout).orientation = if (showOtherInfo) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+                showOtherInfo = !showOtherInfo
+            } catch (ex: Exception) {}
         }
 
         return view!!

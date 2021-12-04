@@ -10,7 +10,7 @@ init () {
     sh /data/powercfg-base.sh
   fi
 }
-if [[ "$action" = "init" ]]; then
+if [[ "$action" == "init" ]]; then
   init
   exit 0
 fi
@@ -51,7 +51,7 @@ governor_backup () {
   if [[ ! -f $governor_backup ]] || [[ "$backup_state" != "true" ]]; then
     echo '' > $governor_backup
     local dir=/sys/class/devfreq
-    for file in `ls $dir`; do
+    for file in `ls $dir | grep -v 'kgsl-3d0'`; do
       if [ -f $dir/$file/governor ]; then
         governor=`cat $dir/$file/governor`
         echo "$file#$governor" >> $governor_backup
@@ -69,7 +69,7 @@ governor_performance () {
   local backup_state=`getprop vtools.dev_freq_backup`
 
   if [[ -f "$governor_backup" ]] && [[ "$backup_state" == "true" ]]; then
-    for file in `ls $dir`; do
+    for file in `ls $dir | grep -v 'kgsl-3d0'`; do
       if [ -f $dir/$file/governor ]; then
         # echo $dir/$file/governor
         echo performance > $dir/$file/governor
@@ -194,6 +194,7 @@ if [ "$action" = "powersave" ]; then
 
   echo 0-2 > /dev/cpuset/background/cpus
   echo 0-3 > /dev/cpuset/system-background/cpus
+  echo 0-3 > /dev/cpuset/foreground/cpus
 
   set_value "85 300000:85 595200:67 825600:75 1248000:78" /sys/devices/system/cpu/cpu0/cpufreq/$governor0/target_loads
   set_value 518400 /sys/devices/system/cpu/cpu0/cpufreq/$governor0/hispeed_freq
@@ -222,6 +223,7 @@ if [ "$action" = "balance" ]; then
 
   echo 0-2 > /dev/cpuset/background/cpus
   echo 0-3 > /dev/cpuset/system-background/cpus
+  echo 0-5 > /dev/cpuset/foreground/cpus
 
   set_value "84 300000:85 595200:67 825600:75 1248000:78" /sys/devices/system/cpu/cpu0/cpufreq/$governor0/target_loads
   set_value 960000 /sys/devices/system/cpu/cpu0/cpufreq/$governor0/hispeed_freq
@@ -251,6 +253,7 @@ if [ "$action" = "performance" ]; then
 
   echo 0-1 > /dev/cpuset/background/cpus
   echo 0-3 > /dev/cpuset/system-background/cpus
+  echo 0-7 > /dev/cpuset/foreground/cpus
 
   set_value "73 960000:72 1478400:78 1804800:87" /sys/devices/system/cpu/cpu0/cpufreq/$governor0/target_loads
   set_value 1478400 /sys/devices/system/cpu/cpu0/cpufreq/$governor0/hispeed_freq
@@ -279,6 +282,7 @@ if [ "$action" = "fast" ]; then
 
   echo 0 > /dev/cpuset/background/cpus
   echo 0-3 > /dev/cpuset/system-background/cpus
+  echo 0-7 > /dev/cpuset/foreground/cpus
 
   set_value "72 960000:72 1478400:78 1804800:87" /sys/devices/system/cpu/cpu0/cpufreq/$governor0/target_loads
   set_value 1036800 /sys/devices/system/cpu/cpu0/cpufreq/$governor0/hispeed_freq

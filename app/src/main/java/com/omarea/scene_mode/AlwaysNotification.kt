@@ -10,9 +10,11 @@ import android.os.Build
 import android.os.SystemClock
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import com.omarea.Scene
 import com.omarea.data.EventType
 import com.omarea.data.GlobalStatus
 import com.omarea.data.IEventReceiver
+import com.omarea.library.shell.BatteryUtils
 import com.omarea.model.BatteryStatus
 import com.omarea.store.BatteryHistoryStore
 import com.omarea.store.SpfConfig
@@ -21,13 +23,24 @@ import com.omarea.vtools.R
 /**
  * 常驻通知
  */
-internal class AlwaysNotification(private var context: Context, notify: Boolean = false, override val isAsync: Boolean = false) : ModeSwitcher(), IEventReceiver {
+internal class AlwaysNotification(
+        private var context: Context,
+        notify: Boolean = false,
+        override val isAsync: Boolean = false) : ModeSwitcher(), IEventReceiver {
     override fun eventFilter(eventType: EventType): Boolean {
         return eventType == EventType.SCENE_MODE_ACTION
     }
 
-    override fun onReceive(eventType: EventType) {
+    override fun onReceive(eventType: EventType, data: HashMap<String, Any>?) {
         notify(false)
+    }
+
+    override fun onSubscribe() {
+
+    }
+
+    override fun onUnsubscribe() {
+
     }
 
     private var showNofity: Boolean = false
@@ -36,6 +49,7 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
     private var batteryHistoryStore: BatteryHistoryStore? = null
     private var globalSPF = context.getSharedPreferences(SpfConfig.GLOBAL_SPF, Context.MODE_PRIVATE)
     private var batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+    private val batteryUtils = BatteryUtils()
 
     private fun getAppName(packageName: String): CharSequence? {
         try {
@@ -65,11 +79,13 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
             }
 
             var currentApp = getCurrentPowermodeApp()
-            if (currentApp.length == 0) {
-                currentApp = context.packageName
-            }
+            if (currentApp.isEmpty()) {
+                currentApp = "android"
 
-            notifyPowerModeChange(currentApp, currentMode, saveLog)
+                notifyPowerModeChange(currentApp, currentMode, false)
+            } else {
+                notifyPowerModeChange(currentApp, currentMode, saveLog)
+            }
         } catch (ex: Exception) {
         }
     }
@@ -82,7 +98,7 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
                 )
 
         // 电量
-        GlobalStatus.batteryCapacity = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        GlobalStatus.batteryCapacity = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // 状态
@@ -91,6 +107,8 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
                 GlobalStatus.batteryStatus = batteryStatus;
             }
         }
+
+        GlobalStatus.updateBatteryTemperature() // 触发温度数据更新
     }
 
     private fun notifyPowerModeChange(packageName: String, mode: String, saveLog: Boolean = false) {
@@ -100,7 +118,7 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
             status.packageName = packageName
             status.mode = mode
             status.time = System.currentTimeMillis()
-            status.temperature = GlobalStatus.batteryTemperature
+            status.temperature = GlobalStatus.temperatureCurrent
             status.status = GlobalStatus.batteryStatus
             status.io = GlobalStatus.batteryCurrentNow.toInt()
 
@@ -123,7 +141,7 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
             updateBatteryStatus();
 
             batteryIO = "${GlobalStatus.batteryCurrentNow}mA"
-            batteryTemp = "${GlobalStatus.batteryTemperature}°C"
+            batteryTemp = "${GlobalStatus.temperatureCurrent}°C"
 
             if (GlobalStatus.batteryStatus == BatteryManager.BATTERY_STATUS_DISCHARGING) {
                 batteryImage = BitmapFactory.decodeResource(context.resources, getBatteryIcon(GlobalStatus.batteryCapacity))
@@ -134,18 +152,19 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
         } catch (ex: Exception) {
         }
 
-        val remoteViews = RemoteViews(context.packageName, R.layout.layout_notification)
-        remoteViews.setTextViewText(R.id.notify_title, getAppName(packageName))
-        remoteViews.setTextViewText(R.id.notify_text, getModName(mode))
-        remoteViews.setTextViewText(R.id.notify_battery_text, "$batteryIO ${GlobalStatus.batteryCapacity}% $batteryTemp")
-        if (modeImage != null) {
-            remoteViews.setImageViewBitmap(R.id.notify_mode, modeImage)
-        }
-        if (batteryImage != null) {
-            remoteViews.setImageViewBitmap(R.id.notify_battery_icon, batteryImage)
+        val remoteViews = this.getRemoteViews().apply {
+            setTextViewText(R.id.notify_title, getAppName(packageName))
+            setTextViewText(R.id.notify_text, getModName(mode))
+            setTextViewText(R.id.notify_battery_text, "$batteryIO ${GlobalStatus.batteryCapacity}% $batteryTemp")
+            if (modeImage != null) {
+                setImageViewBitmap(R.id.notify_mode, modeImage)
+            }
+            if (batteryImage != null) {
+                setImageViewBitmap(R.id.notify_battery_icon, batteryImage)
+            }
         }
 
-        val intent = PendingIntent.getBroadcast(
+        val clickIntent = PendingIntent.getBroadcast(
                 context,
                 0,
                 Intent(context, ReceiverSceneMode::class.java).putExtra("packageName", packageName),
@@ -166,12 +185,22 @@ internal class AlwaysNotification(private var context: Context, notify: Boolean 
                         .setContent(remoteViews)
                         .setWhen(System.currentTimeMillis())
                         .setAutoCancel(true)
+                        .setOngoing(false)
                         //.setDefaults(Notification.DEFAULT_SOUND)
-                        .setContentIntent(intent)
+                        .setContentIntent(clickIntent)
                         .build()
 
-        notification!!.flags = Notification.FLAG_NO_CLEAR or Notification.FLAG_ONGOING_EVENT
+        notification!!.flags = Notification.FLAG_NO_CLEAR or Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE
         notificationManager?.notify(0x100, notification)
+    }
+
+    private fun getRemoteViews(): RemoteViews {
+        val layout = (if (Scene.isNightMode && globalSPF.getBoolean(SpfConfig.GLOBAL_NIGHT_BLACK_NOTIFICATION, false)) {
+            R.layout.layout_notification_dark
+        } else {
+            R.layout.layout_notification
+        })
+        return RemoteViews(context.packageName, layout)
     }
 
     //隐藏通知
